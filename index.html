@@ -84,7 +84,7 @@ function update(dt){updatePlayerB(dt);
   if(G.wolf<=0)wolvesCast();
   if(!D.pull&&d>18&&d<=30&&G.chain<=0){chainCast()}
   if(D.pull){G.state='사슬로 적 제압 중';D.pull.elapsed+=dt;let q=Math.min(1,D.pull.elapsed/D.pull.duration);D.x=D.pull.fromX+(G.x-D.pull.fromX)*q;D.y=D.pull.fromY+(G.y-D.pull.fromY)*q;if(q>=1)kick()}
-  else if(d>2){let sprint=d>12&&G.st>=.25;let speed=sprint?8:5;if(sprint)G.st=Math.max(0,G.st-dt*4);G.state=sprint?'달리며 추격':'적에게 접근';moveToward(G,D,speed,dt)}
+  else if(d>2){let sprint=d>12&&G.st>=.25;let speed=sprint?8:5;if(sprint)G.st=Math.max(0,G.st-dt*4);G.state=sprint?'달리며 추격':'적에게 접근';const step=Math.min(speed*dt,Math.max(0,d-2));const toward=norm(D.x-G.x,D.y-G.y);G.x+=toward.x*step;G.y+=toward.y*step}
   else {G.state='영혼 베기 공격';if(G.slashTimer<=0){damageDummy(100,'영혼 베기');G.slashTimer=.25}}
   // 영혼 절멸자: 근처 3m 안의 적에게 0.5초마다 100 피해
   G.aura+=dt;if(G.aura>=.5){G.aura-=.5;if(dist(G,D)<=3)damageDummy(100,'영혼 절멸자')}
@@ -92,13 +92,13 @@ function update(dt){updatePlayerB(dt);
  // 늑대 명중 시 대상은 제너럴 K의 기본 공격 범위(2m)에 들어오면 밀쳐내기를 멈춘다.
  if(D.knockback&&D.hp>0){
   const gap=dist(G,D),stopRange=2;
-  if(gap<=stopRange){D.knockback=null;D.vx=0;D.vy=0;}
+  if(gap<=stopRange+.0001){D.knockback=null;D.vx=0;D.vy=0;}
   else{
    const towardK=norm(G.x-D.x,G.y-D.y),travel=Math.min(28*dt,gap-stopRange);
    D.x=Math.max(.5,Math.min(99.5,D.x+towardK.x*travel));
    D.y=Math.max(.5,Math.min(99.5,D.y+towardK.y*travel));
    D.vx=towardK.x*28;D.vy=towardK.y*28;
-   if(dist(G,D)<=stopRange+.001){D.knockback=null;D.vx=0;D.vy=0;}
+   if(gap-travel<=stopRange+.0001){D.knockback=null;D.vx=0;D.vy=0;}
   }
  }
  // 영혼 늑대: 근접 거리 판정을 넉넉하게 잡아 충돌 분리 때문에 공격이 막히지 않게 한다.
@@ -115,7 +115,7 @@ function update(dt){updatePlayerB(dt);
    a.hitLock=.6;
    a.attackFlash=.18;
    const towardK=norm(G.x-D.x,G.y-D.y);
-   D.knockback={};
+   D.knockback={active:true};
    D.vx=towardK.x*28;D.vy=towardK.y*28;
    log('영혼 늑대 접촉 공격 성공 · 50 피해');
   }
