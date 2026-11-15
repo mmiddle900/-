@@ -196,27 +196,26 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const dashing=a.dashTimer>0;
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
-    const touched=dist(a,D)<=.8;
-  // 늑대가 공격 범위에 들어온 뒤 2초간 공격을 준비한다.
-  if(!touched||dist(G,D)<=2){a.attackWindup=null;}
-  else if(a.hitLock<=0){
+    const wolfGap=dist(a,D);
+  // 제너럴 K가 가까이 있어도 늑대 공격을 막지 않는다. 최초 준비 후 0.05초 간격으로 반복 공격한다.
+  if(wolfGap>1.6){a.attackWindup=null;}
+  else if(wolfGap<=1.2&&a.hitLock<=0){
    if(a.attackWindup===null||a.attackWindup===undefined){
     a.attackWindup=2;
     log('영혼 늑대 공격 준비 시작');
-   }else{
+   }else if(a.attackWindup>0){
     a.attackWindup=Math.max(0,a.attackWindup-dt);
-    if(a.attackWindup<=0){
-     damageDummy(10,'영혼 늑대');
-     wolfHitFx(D.x,D.y,a.x,a.y);
-     a.hitLock=.05;
-     a.attackWindup=null;
-     a.attackFlash=.18;
-     D.stunTimer=.1;
-     D.vx=0;D.vy=0;
-     ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
-     burst(D.x,D.y,'#8edcff',16,2.6,2);
-     log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.05초 · 0.1초 이동 불가');
-    }
+   }else{
+    damageDummy(10,'영혼 늑대');
+    wolfHitFx(D.x,D.y,a.x,a.y);
+    a.hitLock=.05;
+    a.attackWindup=0;
+    a.attackFlash=.18;
+    D.stunTimer=.1;
+    D.vx=0;D.vy=0;
+    ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
+    burst(D.x,D.y,'#8edcff',16,2.6,2);
+    log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.05초 · 0.1초 이동 불가');
    }
   }
  }
