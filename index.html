@@ -89,16 +89,16 @@ function update(dt){updatePlayerB(dt);
   // 영혼 절멸자: 근처 3m 안의 적에게 0.5초마다 100 피해
   G.aura+=dt;if(G.aura>=.5){G.aura-=.5;if(dist(G,D)<=3)damageDummy(100,'영혼 절멸자')}
  }
- // 늑대 명중 시 대상이 제너럴 K와 맞닿을 때까지 제너럴 K 방향으로 이동시킨다.
+ // 늑대 명중 시 대상은 제너럴 K의 기본 공격 범위(2m)에 들어오면 밀쳐내기를 멈춘다.
  if(D.knockback&&D.hp>0){
-  const gap=dist(G,D),contact=.64,stepTime=dt;
-  if(gap<=contact){D.knockback=null;D.vx=0;D.vy=0;}
+  const gap=dist(G,D),stopRange=2;
+  if(gap<=stopRange){D.knockback=null;D.vx=0;D.vy=0;}
   else{
-   const towardK=norm(G.x-D.x,G.y-D.y),travel=Math.min(28*stepTime,gap-contact);
+   const towardK=norm(G.x-D.x,G.y-D.y),travel=Math.min(28*dt,gap-stopRange);
    D.x=Math.max(.5,Math.min(99.5,D.x+towardK.x*travel));
    D.y=Math.max(.5,Math.min(99.5,D.y+towardK.y*travel));
    D.vx=towardK.x*28;D.vy=towardK.y*28;
-   if(dist(G,D)<=contact+.001){D.knockback=null;D.vx=0;D.vy=0;}
+   if(dist(G,D)<=stopRange+.001){D.knockback=null;D.vx=0;D.vy=0;}
   }
  }
  // 영혼 늑대: 근접 거리 판정을 넉넉하게 잡아 충돌 분리 때문에 공격이 막히지 않게 한다.
