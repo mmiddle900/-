@@ -257,6 +257,41 @@ update=function(dt){
   }
  }else updateWithAllies(dt);
 };
-const oldDraw=draw;draw=function(){oldDraw();if(F.active){const p=worldToScreen(F.x,F.y),z=CELL*cam.z;ctx.save();ctx.shadowColor='#c69cff';ctx.shadowBlur=20;ctx.fillStyle='#392550';ctx.strokeStyle='#e2c9ff';ctx.lineWidth=Math.max(2,z*.05);ctx.beginPath();ctx.arc(p.x,p.y,.42*z,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('프랑',p.x,p.y-.62*z);ctx.textAlign='left'}}new ResizeObserver(resize).observe(view);resize();fit();requestAnimationFrame(frame);
+const oldDraw=draw;draw=function(){oldDraw();if(F.active){const p=worldToScreen(F.x,F.y),z=CELL*cam.z;ctx.save();ctx.shadowColor='#c69cff';ctx.shadowBlur=20;ctx.fillStyle='#392550';ctx.strokeStyle='#e2c9ff';ctx.lineWidth=Math.max(2,z*.05);ctx.beginPath();ctx.arc(p.x,p.y,.42*z,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();ctx.fillStyle='#fff';ctx.textAlign='center';ctx.fillText('프랑',p.x,p.y-.62*z);ctx.textAlign='left'}}
+// 화면 렌더링 안전장치: 기존 렌더링 오류가 나더라도 지형과 배치 캐릭터는 항상 표시한다.
+const previousDraw=draw;
+draw=function(){
+ try{previousDraw()}catch(renderError){}
+ const w=canvas.width/dpr,h=canvas.height/dpr,scale=CELL*cam.z;
+ if(!Number.isFinite(scale)||scale<=0||!Number.isFinite(cam.x)||!Number.isFinite(cam.y))return;
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+ ctx.fillStyle='#17241b';ctx.fillRect(0,0,w,h);
+ const left=Math.max(0,Math.floor(-cam.x/scale)),top=Math.max(0,Math.floor(-cam.y/scale));
+ const right=Math.min(N,Math.ceil((w-cam.x)/scale)),bottom=Math.min(N,Math.ceil((h-cam.y)/scale));
+ for(let y=top;y<bottom;y++)for(let x=left;x<right;x++){
+  ctx.fillStyle=colors[terrain[y][x]]||'#668b4e';
+  ctx.fillRect(cam.x+x*scale,cam.y+y*scale,scale+.5,scale+.5);
+ }
+ if(grid&&scale>5){
+  ctx.strokeStyle='#15251b88';ctx.lineWidth=1;ctx.beginPath();
+  for(let i=0;i<=N;i++){const px=cam.x+i*scale,py=cam.y+i*scale;ctx.moveTo(px,cam.y);ctx.lineTo(px,cam.y+WORLD*cam.z);ctx.moveTo(cam.x,py);ctx.lineTo(cam.x+WORLD*cam.z,py)}
+  ctx.stroke();
+ }
+ ctx.strokeStyle='#d7e6d4';ctx.lineWidth=2;ctx.strokeRect(cam.x,cam.y,WORLD*cam.z,WORLD*cam.z);
+ const actor=(o,label,fill,stroke,radius)=>{
+  const p=worldToScreen(o.x,o.y),r=Math.max(4,radius*scale);
+  ctx.save();ctx.fillStyle=fill;ctx.strokeStyle=stroke;ctx.lineWidth=Math.max(1.5,scale*.05);ctx.shadowColor=stroke;ctx.shadowBlur=12;
+  ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();
+  ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText(label,p.x,p.y-r-7);ctx.textAlign='left';
+ };
+ if(G.active)actor(G,'제너럴 K','#101820','#8bdcff',.48);
+ if(D.active)actor(D,'B · 플레이어','#c68b52','#ffe0ad',.25);
+ if(F.active)actor(F,'프랑','#392550','#e2c9ff',.42);
+ if(G.active&&D.active)for(const wolf of G.wolves)actor(wolf,'늑대','#1265c7','#8bdcff',.14);
+};
+new ResizeObserver(resize).observe(view);
+try{resize()}catch(e){canvas.width=Math.max(1,view.clientWidth);canvas.height=Math.max(1,view.clientHeight);dpr=1}
+try{fit()}catch(e){cam={x:0,y:0,z:.2};draw()}
+requestAnimationFrame(frame);
 })();
 </script></body></html>
