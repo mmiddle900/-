@@ -78,7 +78,7 @@ function updatePlayerB(dt){if(D.hp<=0||D.pull||D.knockback)return;let dx=(keys.d
 function update(dt){updatePlayerB(dt);
  G.st=Math.min(G.stMax,G.st+dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
  if(D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
- if(D.hp>0){
+ if(D.hp>0&&!D.knockback){
   let d=dist(G,D),dir=norm(D.x-G.x,D.y-G.y);
   // AI 판단 우선순위: 소환 유지 > 원거리 사슬 > 접근/추격 > 근접 공격
   if(G.wolf<=0)wolvesCast();
@@ -92,8 +92,10 @@ function update(dt){updatePlayerB(dt);
  // 늑대 명중 시 적을 제너럴 K 방향으로 날려 보낸다.
  if(D.knockback&&D.hp>0){let k=D.knockback,step=Math.min(dt,k.time);D.x=Math.max(.5,Math.min(99.5,D.x+k.vx*step));D.y=Math.max(.5,Math.min(99.5,D.y+k.vy*step));k.time-=step;if(k.time<=0)D.knockback=null}
  // 영혼 늑대는 서로 겹치지 않도록 간격을 유지하며 추적한다.
- for(let i=G.wolves.length-1;i>=0;i--){let a=G.wolves[i];a.hitLock=Math.max(0,a.hitLock-dt);if(D.hp<=0)continue;let d=dist(a,D);if(d>.55)moveToward(a,D,5,dt);else if(a.hitLock<=0&&!D.knockback){damageDummy(50,'영혼 늑대');a.hitLock=.8;let towardK=norm(G.x-D.x,G.y-D.y);D.knockback={vx:towardK.x*20,vy:towardK.y*20,time:.5};}}
- for(let i=0;i<G.wolves.length;i++)for(let j=i+1;j<G.wolves.length;j++){let a=G.wolves[i],b=G.wolves[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<.95){let n=d||.001,overlap=(.95-d)/2,nx=dx/n,ny=dy/n;a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;a.x=Math.max(.5,Math.min(99.5,a.x));a.y=Math.max(.5,Math.min(99.5,a.y));b.x=Math.max(.5,Math.min(99.5,b.x));b.y=Math.max(.5,Math.min(99.5,b.y));}}
+ for(let i=G.wolves.length-1;i>=0;i--){let a=G.wolves[i];a.hitLock=Math.max(0,a.hitLock-dt);if(D.hp<=0)continue;let d=dist(a,D);if(d>.55)moveToward(a,D,5,dt);else if(a.hitLock<=0&&!D.knockback){damageDummy(50,'영혼 늑대');a.hitLock=1.0;let towardK=norm(G.x-D.x,G.y-D.y);D.knockback={vx:towardK.x*28,vy:towardK.y*28,time:.8};log('영혼 늑대 타격! 적을 제너럴 K 방향으로 날려 보냄');}}
+ // 모든 캐릭터와 늑대의 원형 충돌을 해결해 서로 겹치지 않게 한다.
+ const bodies=[{o:G,r:.5,type:'general'},{o:D,r:.42,type:'player'},...G.wolves.map(o=>({o,r:.48,type:'wolf'}))];
+ for(let pass=0;pass<3;pass++)for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){let A=bodies[i],B=bodies[j],dx=B.o.x-A.o.x,dy=B.o.y-A.o.y,d=Math.hypot(dx,dy),min=A.r+B.r;if(d<min){if(d<.0001){dx=.001;dy=0;d=.001}let push=(min-d)/2,nx=dx/d,ny=dy/d;A.o.x-=nx*push;A.o.y-=ny*push;B.o.x+=nx*push;B.o.y+=ny*push;A.o.x=Math.max(A.r,Math.min(100-A.r,A.o.x));A.o.y=Math.max(A.r,Math.min(100-A.r,A.o.y));B.o.x=Math.max(B.r,Math.min(100-B.r,B.o.x));B.o.y=Math.max(B.r,Math.min(100-B.r,B.o.y));}}
  // 사슬은 발사 시점의 방향과 위치를 사용하고, 0.25초 뒤 판정한다.
  for(let i=G.chains.length-1;i>=0;i--){let c=G.chains[i];c.timer-=dt;c.life-=dt;if(c.timer<=0&&!c.hit){c.hit=true;if(D.hp>0&&lineHitsTarget(c.x,c.y,c.tx,c.ty,D,.75)){log('영혼 사슬 명중 · 적을 끌어오는 중');D.pull={fromX:D.x,fromY:D.y,elapsed:0,duration:.32}}else log('영혼 사슬 빗나감')}if(c.life<=0)G.chains.splice(i,1)}
 }
