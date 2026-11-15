@@ -154,7 +154,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(gap-travel<=stopRange+.0001){D.knockback=null;D.vx=0;D.vy=0;}
   }
  }
- // 영혼 늑대: 예측 이동 위치를 중심으로 원형 포위한다. 늑대 수가 늘수록 포위 반경도 커진다.
+ // 영혼 늑대: B의 예상 진행 경로 앞에 일렬로 늘어서 이동을 차단한다.
   for(let i=G.wolves.length-1;i>=0;i--){
    const a=G.wolves[i];
    a.hitLock=Math.max(0,(a.hitLock||0)-dt);
@@ -164,13 +164,17 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const leadDistance=Math.min(5,playerSpeed*.25);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
    const wolfCount=Math.max(1,G.wolves.length);
+   const towardPlayer=norm(D.x-G.x,D.y-G.y);
+   const lateral={x:-towardPlayer.y,y:towardPlayer.x};
    const orderedWolves=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
    const slot=Math.max(0,orderedWolves.indexOf(a));
-   const ringRadius=.35+wolfCount*.1;
-   const angle=(Math.PI*2*slot)/wolfCount;
+   // 늑대 수에 따라 차단선의 폭만 늘리고, 원형으로 둘러싸지 않는다.
+   const spacing=.45;
+   const lateralOffset=(slot-(wolfCount-1)/2)*spacing;
+   const barrierDistance=.45;
    const interceptTarget={
-    x:Math.max(1.2,Math.min(98.8,predicted.x+Math.cos(angle)*ringRadius)),
-    y:Math.max(1.2,Math.min(98.8,predicted.y+Math.sin(angle)*ringRadius))
+    x:Math.max(1.2,Math.min(98.8,predicted.x+towardPlayer.x*barrierDistance+lateral.x*lateralOffset)),
+    y:Math.max(1.2,Math.min(98.8,predicted.y+towardPlayer.y*barrierDistance+lateral.y*lateralOffset))
    };
    a.dashCooldown=(a.dashCooldown??3)-dt;
    if(a.dashCooldown<=0&&!(a.dashTimer>0)){
@@ -183,8 +187,8 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
    const wolfGap=dist(a,D);
-   // 공격 판정 거리를 기존 1.6m에서 0.75m로 실제 축소한다.
-   const wolfAttackRange=.75;
+   // 늑대의 근접 공격 사거리를 0.75m에서 0.3m로 추가 축소한다.
+   const wolfAttackRange=.3;
    if(a.attackWindup===null||a.attackWindup===undefined){
     if(wolfGap<=wolfAttackRange&&a.hitLock<=0){
      a.attackWindup=.5;
@@ -196,7 +200,6 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    }else if(a.attackWindup>0){
     a.attackWindup=Math.max(0,a.attackWindup-dt);
    }
-   // 준비 완료 시에도 사거리 안에 있을 때만 명중시킨다.
    if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=wolfAttackRange){
     damageDummy(50,'영혼 늑대');
     wolfHitFx(D.x,D.y,a.x,a.y);
@@ -207,7 +210,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
     D.vx=0;D.vy=0;
     ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
     burst(D.x,D.y,'#8edcff',16,2.6,2);
-    log('영혼 늑대 공격 성공 · 50 피해 · 공격 간격 0.5초 · 사거리 0.75m');
+    log('영혼 늑대 공격 성공 · 50 피해 · 공격 간격 0.5초 · 사거리 0.3m');
    }
   }
  // 모든 캐릭터와 늑대의 원형 충돌을 해결해 서로 겹치지 않게 한다.
