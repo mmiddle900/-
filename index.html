@@ -197,15 +197,18 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
     const wolfGap=dist(a,D);
-  // 제너럴 K가 가까이 있어도 늑대 공격을 막지 않는다. 최초 준비 후 0.05초 간격으로 반복 공격한다.
-  if(wolfGap>1.6){a.attackWindup=null;}
-  else if(wolfGap<=1.2&&a.hitLock<=0){
+  // 추격 중 잠깐 사거리에 들어와도 준비가 취소되지 않도록 공격 준비 범위를 넓힌다.
+  if(wolfGap>3){a.attackWindup=null;}
+  else{
    if(a.attackWindup===null||a.attackWindup===undefined){
-    a.attackWindup=2;
-    log('영혼 늑대 공격 준비 시작');
+    if(wolfGap<=2.4){
+     a.attackWindup=2;
+     log('영혼 늑대 공격 준비 시작');
+    }
    }else if(a.attackWindup>0){
     a.attackWindup=Math.max(0,a.attackWindup-dt);
-   }else{
+   }
+   if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=2.4){
     damageDummy(10,'영혼 늑대');
     wolfHitFx(D.x,D.y,a.x,a.y);
     a.hitLock=1;
