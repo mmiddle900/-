@@ -15,27 +15,28 @@ const colors={plain:'#668b4e',dirt:'#a18a5d',water:'#477c91',forest:'#315b3d',ro
 const terrain=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>tile(x,y)));
 function hash(x,y){let n=(x*374761393+y*668265263)>>>0;n=Math.imul(n^(n>>>13),1274126177)>>>0;return(n^(n>>>16))>>>0}function rnd(x,y){return hash(x,y)/4294967295}
 function tile(x,y){let r=rnd(x,y),b=rnd(Math.floor(x/7),Math.floor(y/7));if(x>40&&x<59&&y>44&&y<55)return'water';if(b>.82&&r<.82)return'forest';if(b<.13&&r<.65)return'rock';if(x%23<2&&y%19<13||r<.12)return'dirt';return'plain'}
-// 벽은 4방향으로만 확장해 모든 타일이 하나의 덩어리로 연결되도록 생성한다.
-const wallCells=new Uint8Array(N*N);let wallCount=0;
+// 4방향으로 이어지는 미로형 벽을 무작위 확장한다. 벽 타일은 정확히 5,000개.
+const wallCells=new Uint8Array(N*N);let wallCount=0,wallRevision=0;
 function generateConnectedWalls(count=5000){
  wallCells.fill(0);wallCount=0;
- const frontier=[],queued=new Uint8Array(N*N);
- const start=Math.floor(Math.random()*N*N);
- const addNeighbors=i=>{
-  const x=i%N,y=(i/N)|0;
-  if(x>0)add(i-1);if(x<N-1)add(i+1);if(y>0)add(i-N);if(y<N-1)add(i+N);
- };
+ const frontier=[],queued=new Uint8Array(N*N),start=Math.floor(Math.random()*N*N);
+ const neighbors=i=>{const x=i%N,y=(i/N)|0;const a=[];if(x>0)a.push(i-1);if(x<N-1)a.push(i+1);if(y>0)a.push(i-N);if(y<N-1)a.push(i+N);return a};
  const add=i=>{if(!wallCells[i]&&!queued[i]){queued[i]=1;frontier.push(i)}};
- wallCells[start]=1;wallCount=1;addNeighbors(start);
- while(wallCount<count&&frontier.length){
-  const pick=Math.floor(Math.random()*frontier.length);
-  const cell=frontier[pick];frontier[pick]=frontier[frontier.length-1];frontier.pop();
-  queued[cell]=0;
-  if(wallCells[cell])continue;
-  wallCells[cell]=1;wallCount++;addNeighbors(cell);
+ wallCells[start]=1;wallCount=1;for(const n of neighbors(start))add(n);
+ let guard=0;
+ while(wallCount<count&&frontier.length&&guard++<N*N*30){
+  const k=Math.floor(Math.random()*frontier.length),cell=frontier[k];frontier[k]=frontier[frontier.length-1];frontier.pop();queued[cell]=0;
+  const around=neighbors(cell).reduce((v,n)=>v+wallCells[n],0);
+  const accept=around<=2||(around===3&&Math.random()<.2)||(around>=4&&Math.random()<.02);
+  if(!accept)continue;
+  wallCells[cell]=1;wallCount++;for(const n of neighbors(cell))add(n);
  }
- draw();
- log('벽 생성 완료 · '+wallCount.toLocaleString()+'개 · 하나로 연결된 구조');
+ while(wallCount<count&&frontier.length){
+  const k=Math.floor(Math.random()*frontier.length),cell=frontier[k];frontier[k]=frontier[frontier.length-1];frontier.pop();queued[cell]=0;
+  if(wallCells[cell])continue;wallCells[cell]=1;wallCount++;for(const n of neighbors(cell))add(n);
+ }
+ wallRevision++;clearPathCaches();placeAllActorsOnOpenTiles();draw();
+ log('미로형 벽 생성 완료 · '+wallCount.toLocaleString()+'개 · 전체 연결');
 }
 
 let cam={x:0,y:0,z:1},dpr=1,grid=true,drag=false,last=null,keys={};
@@ -142,32 +143,80 @@ function draw(){
  // kick indicator
  if(G.kickFlash>0){ctx.strokeStyle='#fff1a6';ctx.lineWidth=4;ctx.beginPath();ctx.arc(gp.x,gp.y,1.3*s,0,Math.PI*2);ctx.stroke()}}
 }
-function damageDummy(n,source){if(!D.active||D.hp<=0)return;if(source==='영혼 베기'){playSfx('slash');slashFx(D.x,D.y)}if(source==='영혼 늑대'){playSfx('wolf')}if(source==='영혼 절멸자'){playSfx('annihilator');ringFx(G.x,G.y,'#55caff',3,.55,.18);burst(D.x,D.y,'#9ceaff',30,5,3)}D.hp=Math.max(0,D.hp-n);D.flash=.12;log(source+' 적중! B에게 '+n+' 피해');if(D.hp<=0){D.respawn=3;D.pull=null;D.knockback=null;log('B 전투 불능! 3초 후 북부에서 재생성')}}
+function damageDummy(n,source){if(!D.active||D.hp<=0)return;const origin=source==='영혼 늑대'&&G.wolves.length?[...G.wolves].sort((a,b)=>dist(a,D)-dist(b,D))[0]:G;if(wallBlocksSegment(origin.x,origin.y,D.x,D.y)){log(source+' 차단 · 벽에 막힘');return}if(source==='영혼 베기'){playSfx('slash');slashFx(D.x,D.y)}if(source==='영혼 늑대'){playSfx('wolf')}if(source==='영혼 절멸자'){playSfx('annihilator');ringFx(G.x,G.y,'#55caff',3,.55,.18);burst(D.x,D.y,'#9ceaff',30,5,3)}D.hp=Math.max(0,D.hp-n);D.flash=.12;log(source+' 적중! B에게 '+n+' 피해');if(D.hp<=0){D.respawn=3;D.pull=null;D.knockback=null;log('B 전투 불능! 3초 후 북부에서 재생성')}}
 function lineHitsTarget(x1,y1,x2,y2,target,radius){let vx=x2-x1,vy=y2-y1,l2=vx*vx+vy*vy;if(!l2)return false;let t=Math.max(0,Math.min(1,((target.x-x1)*vx+(target.y-y1)*vy)/l2));let px=x1+t*vx,py=y1+t*vy;return Math.hypot(target.x-px,target.y-py)<=radius}
 function chainCast(){if(!G.active||!D.active||G.chain>0||D.hp<=0||D.pull)return;playSfx('chain');ringFx(G.x,G.y,'#46baff',1.1,.38,.14);burst(G.x,G.y,'#8eeaff',16,2.5,2);G.chain=5;const lead=.25;let target={x:Math.max(.5,Math.min(99.5,D.x+D.vx*lead)),y:Math.max(.5,Math.min(99.5,D.y+D.vy*lead))};let dir=norm(target.x-G.x,target.y-G.y);let cast={x:G.x,y:G.y,tx:G.x+dir.x*30,ty:G.y+dir.y*30,timer:.25,life:.5,hit:false,target};G.chains.push(cast);G.state='이동 예측 영혼 사슬';log('AI 판단: B의 이동 방향을 예측해 영혼 사슬 발사')}
 function wolvesCast(){if(!G.active||!D.active||G.wolf>0||G.wolves.length>0)return;playSfx('summon');ringFx(G.x,G.y,'#398fff',2,.7,.16);burst(G.x,G.y,'#60bfff',34,4,3);G.wolf=20;let dir=norm(D.x-G.x,D.y-G.y),back={x:-dir.x,y:-dir.y};for(let i=0;i<3;i++){G.wolves.push({x:Math.max(1,Math.min(99,G.x+back.x*5+dir.y*(i-1)*.8)),y:Math.max(1,Math.min(99,G.y+back.y*5-dir.x*(i-1)*.8)),slot:i,hp:1000,hitLock:0,attackWindup:null,dashCooldown:3,dashTimer:0})}log('AI 판단: 영혼 늑대 3마리 소환')}
 function kick(){if(!D.active||D.hp<=0)return;playSfx('kick');ringFx(D.x,D.y,'#ffe18a',1.8,.35,.2);burst(D.x,D.y,'#ffd58a',30,5,3.2);damageDummy(1000,'발차기');let v=norm(D.x-G.x,D.y-G.y);D.x=Math.max(1,Math.min(99,G.x+v.x*5));D.y=Math.max(1,Math.min(99,G.y+v.y*5));D.pull=null;G.kickFlash=.25}
-function terrainBlocked(x,y){let tx=Math.max(0,Math.min(99,Math.floor(x))),ty=Math.max(0,Math.min(99,Math.floor(y)));return terrain[ty][tx]==='water'||terrain[ty][tx]==='rock'}
-function findPath(sx,sy,tx,ty){
- const start={x:Math.max(0,Math.min(99,Math.floor(sx))),y:Math.max(0,Math.min(99,Math.floor(sy)))};
- const goal={x:Math.max(0,Math.min(99,Math.floor(tx))),y:Math.max(0,Math.min(99,Math.floor(ty)))};
- const id=(x,y)=>y*100+x,prev=new Int32Array(10000);prev.fill(-2);
- const queue=new Int32Array(10000);let head=0,tail=0;queue[tail++]=id(start.x,start.y);prev[id(start.x,start.y)]=-1;
- const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
- let found=-1;
- while(head<tail){const cur=queue[head++],x=cur%100,y=Math.floor(cur/100);if(x===goal.x&&y===goal.y){found=cur;break}
-  for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=id(nx,ny);if(prev[ni]!==-2||terrainBlocked(nx+.5,ny+.5))continue;if(dx&&dy&&(terrainBlocked(x+dx+.5,y+.5)||terrainBlocked(x+.5,y+dy+.5)))continue;prev[ni]=cur;queue[tail++]=ni}
- }
- if(found<0)return null;const path=[];for(let at=found;at!==-1;at=prev[at])path.push({x:at%100+.5,y:Math.floor(at/100)+.5});path.reverse();return path;
+function terrainBlocked(x,y){
+ const tx=Math.max(0,Math.min(99,Math.floor(x))),ty=Math.max(0,Math.min(99,Math.floor(y)));
+ return !!wallCells[ty*N+tx]||terrain[ty][tx]==='water'||terrain[ty][tx]==='rock';
 }
+function findPath(sx,sy,tx,ty){
+ const id=(x,y)=>y*100+x;
+ const nearest=(x,y)=>{x=Math.max(0,Math.min(99,Math.floor(x)));y=Math.max(0,Math.min(99,Math.floor(y)));
+  if(!terrainBlocked(x+.5,y+.5))return{x,y};
+  const seen=new Uint8Array(10000),q=[id(x,y)];seen[id(x,y)]=1;
+  for(let h=0;h<q.length;h++){const c=q[h],cx=c%100,cy=(c/100)|0;
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=id(nx,ny);if(seen[ni])continue;seen[ni]=1;if(!terrainBlocked(nx+.5,ny+.5))return{x:nx,y:ny};q.push(ni)}
+  }return null;
+ };
+ const start=nearest(sx,sy),goal=nearest(tx,ty);if(!start||!goal)return null;
+ const prev=new Int32Array(10000);prev.fill(-2);const queue=new Int32Array(10000);
+ let head=0,tail=0,first=id(start.x,start.y),last=id(goal.x,goal.y);queue[tail++]=first;prev[first]=-1;
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+ while(head<tail){const cur=queue[head++];if(cur===last)break;const x=cur%100,y=(cur/100)|0;
+  for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=id(nx,ny);if(prev[ni]!==-2||terrainBlocked(nx+.5,ny+.5))continue;prev[ni]=cur;queue[tail++]=ni}
+ }
+ if(prev[last]===-2)return null;
+ const path=[];for(let at=last;at!==-1;at=prev[at])path.push({x:at%100+.5,y:((at/100)|0)+.5});path.reverse();return path;
+}
+function clearPathCaches(){for(const e of [G,D,F,...G.wolves,...extraCombatants])if(e){e.path=null;e.pathIndex=0;e.pathTimer=0;e.pathRevision=wallRevision}}
 G.path=null;G.pathTimer=0;
 function moveToward(entity,target,speed,dt){
- // General K는 타일 장애물 충돌로 추적이 멈추지 않도록 목표를 향해 직접 이동한다.
- // 현재 훈련장에는 지형 충돌 규칙이 없으므로 물/바위 타일도 통과한다.
- let v=norm(target.x-entity.x,target.y-entity.y),step=speed*dt;
- entity.x+=v.x*step;entity.y+=v.y*step;
- entity.x=Math.max(.5,Math.min(99.5,entity.x));
- entity.y=Math.max(.5,Math.min(99.5,entity.y));
+ if(!entity||!target)return;
+ entity.pathTimer=(entity.pathTimer||0)-dt;
+ const goalX=Math.floor(target.x),goalY=Math.floor(target.y);
+ if(!entity.path||entity.pathRevision!==wallRevision||entity.pathTimer<=0||entity.pathGoalX!==goalX||entity.pathGoalY!==goalY){
+  entity.path=findPath(entity.x,entity.y,target.x,target.y);entity.pathIndex=entity.path&&entity.path.length>1?1:0;
+  entity.pathTimer=.22;entity.pathGoalX=goalX;entity.pathGoalY=goalY;entity.pathRevision=wallRevision;
+ }
+ const path=entity.path;if(!path||!path.length)return;
+ while(entity.pathIndex<path.length-1&&Math.hypot(path[entity.pathIndex].x-entity.x,path[entity.pathIndex].y-entity.y)<.22)entity.pathIndex++;
+ const waypoint=path[Math.min(entity.pathIndex,path.length-1)];
+ const v=norm(waypoint.x-entity.x,waypoint.y-entity.y),step=Math.min(speed*dt,Math.hypot(waypoint.x-entity.x,waypoint.y-entity.y));
+ entity.x+=v.x*step;entity.y+=v.y*step;entity.x=Math.max(.5,Math.min(99.5,entity.x));entity.y=Math.max(.5,Math.min(99.5,entity.y));
+}
+function wallBlocksSegment(x1,y1,x2,y2){
+ const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(len*12));
+ for(let i=1;i<steps;i++){const t=i/steps,x=x1+dx*t,y=y1+dy*t,tx=Math.floor(x),ty=Math.floor(y);if(tx<0||ty<0||tx>=N||ty>=N||wallCells[ty*N+tx])return true}
+ return false;
+}
+function circleHitsWall(x,y,r){
+ if(x-r<0||y-r<0||x+r>=N||y+r>=N)return true;
+ const x0=Math.max(0,Math.floor(x-r)),x1=Math.min(99,Math.floor(x+r)),y0=Math.max(0,Math.floor(y-r)),y1=Math.min(99,Math.floor(y+r));
+ for(let ty=y0;ty<=y1;ty++)for(let tx=x0;tx<=x1;tx++)if(wallCells[ty*N+tx]){
+  const qx=Math.max(tx,Math.min(tx+1,x)),qy=Math.max(ty,Math.min(ty+1,y));
+  if(Math.hypot(x-qx,y-qy)<r-.0005)return true;
+ }return false;
+}
+function nearestOpenPosition(x,y,r=.14){
+ let sx=Math.max(0,Math.min(99,Math.floor(x))),sy=Math.max(0,Math.min(99,Math.floor(y)));
+ const seen=new Uint8Array(10000),q=[sy*100+sx];seen[q[0]]=1;
+ for(let h=0;h<q.length;h++){const id=q[h],cx=id%100,cy=(id/100)|0,px=cx+.5,py=cy+.5;
+  if(!circleHitsWall(px,py,r))return{x:px,y:py};
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=ny*100+nx;if(!seen[ni]){seen[ni]=1;q.push(ni)}}
+ }return{x:.5,y:.5};
+}
+function slideAlongWalls(from,to,r){
+ let x=from.x,y=from.y;if(circleHitsWall(x,y,r)){const p=nearestOpenPosition(x,y,r);x=p.x;y=p.y}
+ const dx=to.x-from.x,dy=to.y-from.y,steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/.08));
+ for(let i=1;i<=steps;i++){const nx=from.x+dx*i/steps,ny=from.y+dy*i/steps;if(!circleHitsWall(nx,y,r))x=nx;if(!circleHitsWall(x,ny,r))y=ny}
+ return{x,y};
+}
+function placeAllActorsOnOpenTiles(){
+ const place=(e,r)=>{if(e&&e.active&&circleHitsWall(e.x,e.y,r)){const p=nearestOpenPosition(e.x,e.y,r);e.x=p.x;e.y=p.y}};
+ place(G,.46);place(D,.13);place(F,.32);for(const w of G.wolves)place(w,.13);for(const e of extraCombatants)place(e,e.radius||.3);
 }
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d'].includes(k)){keys[k]=true;e.preventDefault()}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
@@ -175,7 +224,7 @@ window.addEventListener('blur',()=>{keys={}});
 function updatePlayerB(dt){if(!D.active){D.vx=0;D.vy=0;return}D.slowTimer=Math.max(0,(D.slowTimer||0)-dt);if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy),speed=D.slowTimer>0?3.5:7;D.vx=v.x*speed;D.vy=v.y*speed;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
 function update(dt){updateEffects(dt);updatePlayerB(dt);
  if(G.active)G.st=Math.min(G.stMax,G.st+dt);G.jumpCooldown=Math.max(0,(G.jumpCooldown||0)-dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
- if(D.active&&D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
+ if(D.active&&D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;if(wallCount){const p=nearestOpenPosition(D.x,D.y,.13);D.x=p.x;D.y=p.y;}D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
  if(G.active&&D.active&&D.hp>0&&!D.knockback&&!(F.active&&F.hp>0&&dist(G,F)<dist(G,D))){
   let d=dist(G,D),dir=norm(D.x-G.x,D.y-G.y);
   // AI 판단 우선순위: 소환 유지 > 원거리 사슬 > 접근/추격 > 근접 공격
@@ -183,7 +232,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
   if(!D.pull&&d>18&&d<=30&&G.chain<=0){chainCast()}
   if(D.pull){G.state='사슬로 적 제압 중';D.pull.elapsed+=dt;let q=Math.min(1,D.pull.elapsed/D.pull.duration);D.x=D.pull.fromX+(G.x-D.pull.fromX)*q;D.y=D.pull.fromY+(G.y-D.pull.fromY)*q;if(q>=1)kick()}
   else if(G.jump){G.jump.elapsed+=dt;const q=Math.min(1,G.jump.elapsed/G.jump.duration);G.x=G.jump.fromX+(G.jump.toX-G.jump.fromX)*q;G.y=G.jump.fromY+(G.jump.toY-G.jump.fromY)*q;G.state='도약 돌진';if(q>=1)G.jump=null}
-  else if(d>2){if(d<=17.5&&G.st>=20&&G.jumpCooldown<=0){const toward=norm(D.x-G.x,D.y-G.y),leap=14.5;G.st-=20;G.jump={fromX:G.x,fromY:G.y,toX:Math.max(.5,Math.min(99.5,G.x+toward.x*leap)),toY:Math.max(.5,Math.min(99.5,G.y+toward.y*leap)),elapsed:0,duration:.22};G.jumpCooldown=2;G.state='도약 돌진';playSfx('slash');log('도약 돌진 · 스태미나 20 소모')}else{let sprint=d>12&&G.st>=.25;let speed=sprint?8:5;if(sprint)G.st=Math.max(0,G.st-dt*4);G.state=sprint?'달리며 추격':'적에게 접근';const step=Math.min(speed*dt,Math.max(0,d-2));const toward=norm(D.x-G.x,D.y-G.y);G.x+=toward.x*step;G.y+=toward.y*step}}
+  else if(d>2){if(d<=17.5&&G.st>=20&&G.jumpCooldown<=0){const toward=norm(D.x-G.x,D.y-G.y),leap=14.5;G.st-=20;G.jump={fromX:G.x,fromY:G.y,toX:Math.max(.5,Math.min(99.5,G.x+toward.x*leap)),toY:Math.max(.5,Math.min(99.5,G.y+toward.y*leap)),elapsed:0,duration:.22};G.jumpCooldown=2;G.state='도약 돌진';playSfx('slash');log('도약 돌진 · 스태미나 20 소모')}else{let sprint=d>12&&G.st>=.25;let speed=sprint?8:5;if(sprint)G.st=Math.max(0,G.st-dt*4);G.state=sprint?'달리며 추격':'적에게 접근';const step=Math.min(speed*dt,Math.max(0,d-2));moveToward(G,D,speed,dt)}}
   else {G.state='영혼 베기 공격';if(G.slashTimer<=0){damageDummy(100,'영혼 베기');G.slashTimer=.25}}
   // 영혼 절멸자: 근처 3m 안의 적에게 0.5초마다 100 피해
   G.aura+=dt;if(G.aura>=.5){G.aura-=.5;if(dist(G,D)<=3)damageDummy(100,'영혼 절멸자')}
@@ -272,18 +321,28 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
  const bodies=[...(G.active?[{o:G,r:.5,type:'general'}]:[]),...(D.active?[{o:D,r:.14,type:'player'}]:[]),...(G.active&&D.active?G.wolves.map(o=>({o,r:.14,type:'wolf'})):[])];
  for(let pass=0;pass<3;pass++)for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){let A=bodies[i],B=bodies[j];if((A.type==='general'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='general')||(A.type==='player'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='player'))continue;let dx=B.o.x-A.o.x,dy=B.o.y-A.o.y,d=Math.hypot(dx,dy),min=A.r+B.r;if(d<min){if(d<.0001){dx=.001;dy=0;d=.001}let push=(min-d)/2,nx=dx/d,ny=dy/d;A.o.x-=nx*push;A.o.y-=ny*push;B.o.x+=nx*push;B.o.y+=ny*push;A.o.x=Math.max(A.r,Math.min(100-A.r,A.o.x));A.o.y=Math.max(A.r,Math.min(100-A.r,A.o.y));B.o.x=Math.max(B.r,Math.min(100-B.r,B.o.x));B.o.y=Math.max(B.r,Math.min(100-B.r,B.o.y));}}
  // 사슬은 발사 시점의 방향과 위치를 사용하고, 0.25초 뒤 판정한다.
- for(let i=G.chains.length-1;i>=0;i--){let c=G.chains[i];c.timer-=dt;c.life-=dt;if(c.timer<=0&&!c.hit){c.hit=true;const ct=c.target||D;if(ct.active&&ct.hp>0&&lineHitsTarget(c.x,c.y,c.tx,c.ty,ct,.75)){playSfx('chain');ringFx(ct.x,ct.y,'#55baff',1,.3,.12);burst(ct.x,ct.y,'#8eeaff',16,2.5,2);if(ct===D){log('영혼 사슬 명중 · 적을 끌어오는 중');D.pull={fromX:D.x,fromY:D.y,elapsed:0,duration:.32}}else{applyUniversalDamage(ct,100,'영혼 사슬');ct.universalPull={fromX:ct.x,fromY:ct.y,elapsed:0,duration:.32};log('영혼 사슬 명중 · 적을 제너럴 K 앞으로 끌어오는 중')}}else log('영혼 사슬 빗나감')}if(c.life<=0)G.chains.splice(i,1)}
+ for(let i=G.chains.length-1;i>=0;i--){let c=G.chains[i];c.timer-=dt;c.life-=dt;if(c.timer<=0&&!c.hit){c.hit=true;const ct=c.target||D;if(ct.active&&ct.hp>0&&!wallBlocksSegment(c.x,c.y,ct.x,ct.y)&&lineHitsTarget(c.x,c.y,c.tx,c.ty,ct,.75)){playSfx('chain');ringFx(ct.x,ct.y,'#55baff',1,.3,.12);burst(ct.x,ct.y,'#8eeaff',16,2.5,2);if(ct===D){log('영혼 사슬 명중 · 적을 끌어오는 중');D.pull={fromX:D.x,fromY:D.y,elapsed:0,duration:.32}}else{applyUniversalDamage(ct,100,'영혼 사슬');ct.universalPull={fromX:ct.x,fromY:ct.y,elapsed:0,duration:.32};log('영혼 사슬 명중 · 적을 제너럴 K 앞으로 끌어오는 중')}}else log('영혼 사슬 빗나감')}if(c.life<=0)G.chains.splice(i,1)}
 }
+// 모든 캐릭터·소환수·등록 오브젝트의 이동을 벽 충돌로 최종 보정한다.
+const updateBeforeWallPhysics=update;
+update=function(dt){
+ const before=new Map(),capture=e=>{if(e&&Number.isFinite(e.x)&&Number.isFinite(e.y))before.set(e,{x:e.x,y:e.y})};
+ capture(G);capture(D);capture(F);for(const w of G.wolves)capture(w);for(const e of extraCombatants)capture(e);
+ updateBeforeWallPhysics(dt);
+ const resolve=(e,r)=>{if(!e||!Number.isFinite(e.x)||!Number.isFinite(e.y))return;const old=before.get(e)||{x:e.x,y:e.y};const p=slideAlongWalls(old,{x:e.x,y:e.y},r);e.x=p.x;e.y=p.y};
+ if(G.active)resolve(G,.46);if(D.active)resolve(D,.13);if(F.active)resolve(F,.32);
+ for(const w of G.wolves)resolve(w,.13);for(const e of extraCombatants)if(e.active)resolve(e,e.radius||.3);
+};
 let prev=performance.now(),acc=0;function frame(now){acc+=Math.min(.1,(now-prev)/1000);prev=now;const step=1/60;while(acc>=step){update(step);acc-=step}updateUI();draw();requestAnimationFrame(frame)}
 function updateUI(){$('guardState').textContent=G.guardCooldown>0?G.guardCooldown.toFixed(2)+'초':'준비 완료';$('guardBlocks').textContent=(G.guardBlocks||0)+'회';$('ghp').textContent=G.active?G.hp+' / '+G.max:'전장 대기';$('ghpbar').style.width=(G.active?G.hp/G.max*100:0)+'%';$('stam').textContent=G.active?Math.floor(G.st)+' / 100':'-';$('stambar').style.width=G.st+'%';$('gpos').textContent=G.active?G.x.toFixed(1)+', '+G.y.toFixed(1):'전장 대기';$('aiState').textContent=G.active?G.state:'전장 대기';$('dhp').textContent=D.active?Math.ceil(D.hp)+' / '+D.max:'전장 대기';$('dhpbar').style.width=(D.active?D.hp/D.max*100:0)+'%';$('dpos').textContent=D.active?D.x.toFixed(1)+', '+D.y.toFixed(1):'전장 대기';$('fhp').textContent=F.active?F.hp+' / 1000':'전장 대기';$('fshield').textContent=F.active?Math.floor(F.shield)+' / 3000':'-';$('fstate').textContent=F.active?F.state:'전장 대기';$('fbeam').textContent=F.active?(F.beamCd>0?F.beamCd.toFixed(1)+'초 남음':'준비 완료'):'15초 · 275 피해';$('fmeteor').textContent=F.active?(F.meteorCd>0?F.meteorCd.toFixed(1)+'초 남음':'준비 완료'):'50초 · 전원 500';$('farmageddon').textContent=F.active?(F.armageddonCd>0?F.armageddonCd.toFixed(1)+'초 남음':'준비 완료'):'80초 · 전원 2,500';$('s1').textContent=G.active&&D.active&&dist(G,D)<=2?'공격 범위 내':'전장 대기';$('s2').textContent=G.active?(G.chain>0?G.chain.toFixed(1)+'초':'준비 완료'):'-';$('s3').textContent=G.active?(G.wolf>0?G.wolf.toFixed(1)+'초':'준비 완료'):'-'}
 function reset(){G.active=false;D.active=false;F.active=false;F.hp=1000;F.shield=3000;F.attackTimer=.001;F.beamCd=15;F.meteorCd=50;F.armageddonCd=80;F.lastOrbSfx=0;screenShake=0;whiteout=0;fireField=0;particles.length=0;visualEffects.length=0;skillTexts.length=0;G.x=20;G.y=50;G.jump=null;G.jumpCooldown=0;G.path=null;G.pathTimer=0;G.hp=5000;G.st=100;G.guardCooldown=0;G.guardBlocks=0;G.guardFlash=0;G.attack=0;G.chain=0;G.wolf=0;G.aura=0;G.slashTimer=0;G.wolves=[];G.wolfBiteMode=false;G.wolfPhase='forming';G.wolfCycleCooldown=0;G.chains=[];G.state='적 탐색';D.x=50;D.y=8;D.hp=D.max;D.pull=null;D.knockback=null;D.respawn=0;logs=[];log('전투 초기화 완료')}
 function point(e){let r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 view.addEventListener('pointerdown',e=>{drag=true;last={x:e.clientX,y:e.clientY};view.setPointerCapture(e.pointerId)});view.addEventListener('pointermove',e=>{if(drag){cam.x+=e.clientX-last.x;cam.y+=e.clientY-last.y;last={x:e.clientX,y:e.clientY};draw()}});view.addEventListener('pointerup',()=>drag=false);view.addEventListener('wheel',e=>{e.preventDefault();let p=point(e),old=cam.z,nz=Math.max(.18,Math.min(3.5,old*(e.deltaY<0?1.12:.89)));cam.x=p.x-(p.x-cam.x)*nz/old;cam.y=p.y-(p.y-cam.y)*nz/old;cam.z=nz;zoomlabel();draw()},{passive:false});
 $('zoomin').onclick=()=>zoom(1.25);$('zoomout').onclick=()=>zoom(.8);function zoom(f){let p={x:canvas.clientWidth/2,y:canvas.clientHeight/2},o=cam.z;cam.z=Math.max(.18,Math.min(3.5,o*f));cam.x=p.x-(p.x-cam.x)*cam.z/o;cam.y=p.y-(p.y-cam.y)*cam.z/o;zoomlabel();draw()}
-$('makeWalls').onclick=()=>generateConnectedWalls(5000);$('addG').onclick=()=>{G.active=true;G.x=20;G.y=50;G.hp=G.max;G.st=100;G.guardCooldown=0;G.guardBlocks=0;G.guardFlash=0;log('제너럴 K 전장 배치')};$('addB').onclick=()=>{D.active=true;D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B 전장 배치')};$('addF').onclick=()=>{F.active=true;F.x=80;F.y=50;F.hp=1000;F.shield=3000;F.attackTimer=.001;F.beamCd=15;F.meteorCd=50;F.armageddonCd=80;F.lastOrbSfx=0;F.state='적 탐색';log('프랑 전장 배치 · 스킬 쿨타임 시작')};$('fit').onclick=fit;$('grid').onclick=e=>{grid=!grid;e.target.textContent=grid?'격자 끄기':'격자 켜기';draw()};$('reset').onclick=reset;
+$('makeWalls').onclick=()=>generateConnectedWalls(5000);$('addG').onclick=()=>{G.active=true;G.x=20;G.y=50;if(wallCount){const p=nearestOpenPosition(G.x,G.y,.46);G.x=p.x;G.y=p.y;}G.hp=G.max;G.st=100;G.guardCooldown=0;G.guardBlocks=0;G.guardFlash=0;log('제너럴 K 전장 배치')};$('addB').onclick=()=>{D.active=true;D.x=50;D.y=8;if(wallCount){const p=nearestOpenPosition(D.x,D.y,.13);D.x=p.x;D.y=p.y;}D.hp=D.max;D.respawn=0;log('B 전장 배치')};$('addF').onclick=()=>{F.active=true;F.x=80;F.y=50;if(wallCount){const p=nearestOpenPosition(F.x,F.y,.32);F.x=p.x;F.y=p.y;}F.hp=1000;F.shield=3000;F.attackTimer=.001;F.beamCd=15;F.meteorCd=50;F.armageddonCd=80;F.lastOrbSfx=0;F.state='적 탐색';log('프랑 전장 배치 · 스킬 쿨타임 시작')};$('fit').onclick=fit;$('grid').onclick=e=>{grid=!grid;e.target.textContent=grid?'격자 끄기':'격자 켜기';draw()};$('reset').onclick=reset;
 
 function tryGeneralGuard(target,amount,label){if(target!==G||amount>100||G.guardCooldown>0||!G.active)return false;G.guardBlocks=(G.guardBlocks||0)+1;G.guardCooldown=Math.max(0,.25-.01*G.guardBlocks);G.guardFlash=.22;playSfx('guard');ringFx(G.x,G.y,'#9ff7ff',1.15,.28,.16);burst(G.x,G.y,'#bafaff',16,2.4,2);screenShake=Math.max(screenShake,.06);log('기본 공격 가드 성공 · '+label+' 차단 · 다음 가드 쿨타임 '+G.guardCooldown.toFixed(2)+'초');return true}
-function francDamage(target,amount,label){if(!target||target.hp<=0)return;if(tryGeneralGuard(target,amount,label))return;let left=amount;if(typeof target.shield==='number'&&target.shield>0){const absorbed=Math.min(target.shield,left);target.shield-=absorbed;left-=absorbed;}target.hp=Math.max(0,target.hp-left);target.flash=.16;screenShake=Math.max(screenShake,.18);ringFx(target.x,target.y,'#b9f7ff',1.2,.34,.14);burst(target.x,target.y,'#d9fbff',18,3,2);log('프랑 '+label+' 적중 · '+(target===G?'제너럴 K':target===D?'B':'적 캐릭터')+'에게 '+amount+' 피해')}
+function francDamage(target,amount,label){if(!target||target.hp<=0)return;if(wallBlocksSegment(F.x,F.y,target.x,target.y)){log('프랑 '+label+' 차단 · 벽에 막힘');return}if(tryGeneralGuard(target,amount,label))return;let left=amount;if(typeof target.shield==='number'&&target.shield>0){const absorbed=Math.min(target.shield,left);target.shield-=absorbed;left-=absorbed;}target.hp=Math.max(0,target.hp-left);target.flash=.16;screenShake=Math.max(screenShake,.18);ringFx(target.x,target.y,'#b9f7ff',1.2,.34,.14);burst(target.x,target.y,'#d9fbff',18,3,2);log('프랑 '+label+' 적중 · '+(target===G?'제너럴 K':target===D?'B':'적 캐릭터')+'에게 '+amount+' 피해')}
 function francSkillText(text){skillTexts.push({x:F.x,y:F.y,text,color:'#e6c9ff',life:1.15})}
 function francTargets(){const a=[];if(G.active&&G.hp>0)a.push(G);if(D.active&&D.hp>0)a.push(D);if(typeof extraCombatants!=='undefined')for(const t of extraCombatants)if(t.active&&t.hp>0&&t.faction!=='ally')a.push(t);return a}
 function updateFranc(dt){if(!F.active)return;F.shield=Math.min(F.maxShield,F.shield+300*dt);if(F.hp<=0){F.state='전투 불능';return}const ts=francTargets();if(!ts.length){F.state='적 탐색';return}ts.sort((a,b)=>dist(F,a)-dist(F,b));const t=ts[0],d=dist(F,t),losing=F.hp+F.shield<t.hp;if(d<3&&losing){const v=norm(F.x-t.x,F.y-t.y);F.x=Math.max(.5,Math.min(99.5,F.x+v.x*2*dt));F.y=Math.max(.5,Math.min(99.5,F.y+v.y*2*dt));F.state='위험 감지 · 백스텝'}else if(d>2){moveToward(F,t,2,dt);F.state=(t===G?'제너럴 K':'B')+' 추적'}else F.state='광탄 연사';F.attackTimer-=dt;if(F.attackTimer<=0){visualEffects.push({type:'orb',x:F.x,y:F.y,tx:t.x,ty:t.y,duration:.16,life:.16});if(F.lastOrbSfx<=0){playSfx('orb');F.lastOrbSfx=.15}francDamage(t,15,'광탄');F.attackTimer=.001}else F.lastOrbSfx=Math.max(0,F.lastOrbSfx-dt);F.beamCd-=dt;F.meteorCd-=dt;F.armageddonCd-=dt;if(F.armageddonCd<=0){F.state='아마겟돈 시전';francSkillText('아마겟돈');playSfx('armageddon');whiteout=.55;fireField=2.4;screenShake=.7;visualEffects.push({type:'firewave',x:50,y:50,radius:75,duration:1.3,life:1.3});for(const q of ts)francDamage(q,2500,'아마겟돈');for(let i=0;i<7;i++)burst(F.x+(Math.random()-.5)*18,F.y+(Math.random()-.5)*18,'#ff7a2c',34,7,4);log('프랑 궁극기 · 아마겟돈 · 전장 전체 2,500 피해');F.armageddonCd=80}else if(F.meteorCd<=0){F.state='메테오 낙하';francSkillText('메테오');playSfx('meteor');screenShake=.55;for(const q of ts){visualEffects.push({type:'meteor',x:q.x,y:q.y,duration:.8,life:.8});francDamage(q,500,'메테오');visualEffects.push({type:'firewave',x:q.x,y:q.y,radius:8,duration:.7,life:.7});burst(q.x,q.y,'#ff6927',42,7,4)}log('프랑 메테오 · 모든 적에게 500 피해');F.meteorCd=50}else if(F.beamCd<=0){F.state='광선 발사';francSkillText('광선');playSfx('beam');screenShake=.28;visualEffects.push({type:'beam',x:t.x,y:t.y,duration:.42,life:.42});francDamage(t,275,'광선');log('프랑 광선 · '+(t===G?'제너럴 K':'B')+'에게 확정 명중 · 275 피해');F.beamCd=15}}
@@ -302,6 +361,8 @@ function allHostileTargets(source){
 }
 function applyUniversalDamage(target,amount,sourceName){
  if(!target||target.hp<=0)return;
+ const origin=sourceName.includes('늑대')&&G.wolves.length?[...G.wolves].sort((a,b)=>dist(a,target)-dist(b,target))[0]:G;
+ if(wallBlocksSegment(origin.x,origin.y,target.x,target.y)){log(sourceName+' 차단 · 벽에 막힘');return}
  let remaining=amount;
  if(target===F){const absorbed=Math.min(F.shield,remaining);F.shield-=absorbed;remaining-=absorbed;}
  target.hp=Math.max(0,target.hp-remaining);target.flash=.16;
@@ -334,7 +395,7 @@ function updateGeneralUniversal(dt){
  if(G.jump){G.jump.elapsed+=dt;const q=Math.min(1,G.jump.elapsed/G.jump.duration);G.x=G.jump.fromX+(G.jump.toX-G.jump.fromX)*q;G.y=G.jump.fromY+(G.jump.toY-G.jump.fromY)*q;if(q>=1)G.jump=null;}
  else if(d>2){
   if(d<=17.5&&G.st>=20&&G.jumpCooldown<=0){G.st-=20;G.jump={fromX:G.x,fromY:G.y,toX:Math.max(.5,Math.min(99.5,G.x+v.x*14.5)),toY:Math.max(.5,Math.min(99.5,G.y+v.y*14.5)),elapsed:0,duration:.22};G.jumpCooldown=2;playSfx('slash');}
-  else{const speed=d>12&&G.st>.25?8:5;G.x=Math.max(.5,Math.min(99.5,G.x+v.x*speed*dt));G.y=Math.max(.5,Math.min(99.5,G.y+v.y*speed*dt));}
+  else{const speed=d>12&&G.st>.25?8:5;moveToward(G,t,speed,dt)}
   G.state='적 캐릭터 추적';
  }else{
   G.state='영혼 베기 공격';universalGeneralAttack-=dt;
