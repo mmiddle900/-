@@ -17,7 +17,7 @@ function hash(x,y){let n=(x*374761393+y*668265263)>>>0;n=Math.imul(n^(n>>>13),12
 function tile(x,y){let r=rnd(x,y),b=rnd(Math.floor(x/7),Math.floor(y/7));if(x>40&&x<59&&y>44&&y<55)return'water';if(b>.82&&r<.82)return'forest';if(b<.13&&r<.65)return'rock';if(x%23<2&&y%19<13||r<.12)return'dirt';return'plain'}
 let cam={x:0,y:0,z:1},dpr=1,grid=true,drag=false,last=null,keys={};
 const G={x:20,y:50,hp:5000,max:5000,st:100,stMax:100,attack:0,chain:0,wolf:0,aura:0,chains:[],wolves:[],kickFlash:0,state:'적 탐색',slashTimer:0,wolfTimer:0,chainPending:false};
-let D={x:50,y:8,hp:10000,max:10000,flash:0,pull:null,knockback:null,stunTimer:0,vx:0,vy:0,respawn:0},logs=[];
+let D={x:50,y:8,hp:10000,max:10000,flash:0,pull:null,knockback:null,slowTimer:0,vx:0,vy:0,respawn:0},logs=[];
 const particles=[],visualEffects=[];
 function burst(x,y,color,count=18,power=3,size=2.5){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,v=power*(.35+Math.random()*.9);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.35+Math.random()*.45,max:.8,size:size*(.5+Math.random()),color})}}
 function ringFx(x,y,color,radius=2,duration=.45,width=.12){visualEffects.push({type:'ring',x,y,color,radius,duration,life:duration,width})}
@@ -127,7 +127,7 @@ function moveToward(entity,target,speed,dt){
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d'].includes(k)){keys[k]=true;e.preventDefault()}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 window.addEventListener('blur',()=>{keys={}});
-function updatePlayerB(dt){if(D.stunTimer>0){D.stunTimer=Math.max(0,D.stunTimer-dt);D.vx=0;D.vy=0;return}if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy);D.vx=v.x*40;D.vy=v.y*40;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
+function updatePlayerB(dt){D.slowTimer=Math.max(0,(D.slowTimer||0)-dt);if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy),speed=D.slowTimer>0?20:40;D.vx=v.x*speed;D.vy=v.y*speed;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
 function update(dt){updateEffects(dt);updatePlayerB(dt);
  G.st=Math.min(G.stMax,G.st+dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
  if(D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
@@ -202,7 +202,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
   else{
    if(a.attackWindup===null||a.attackWindup===undefined){
     if(wolfGap<=2.4){
-     a.attackWindup=2;
+     a.attackWindup=.5;
      log('영혼 늑대 공격 준비 시작');
     }
    }else if(a.attackWindup>0){
@@ -211,14 +211,14 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=2.4){
     damageDummy(10,'영혼 늑대');
     wolfHitFx(D.x,D.y,a.x,a.y);
-    a.hitLock=1;
+    a.hitLock=.5;
     a.attackWindup=0;
     a.attackFlash=.18;
-    D.stunTimer=.1;
+    D.slowTimer=.1;
     D.vx=0;D.vy=0;
     ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
     burst(D.x,D.y,'#8edcff',16,2.6,2);
-    log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 1초 · 0.1초 이동 불가');
+    log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 1초 · 0.1초 동안 이동속도 50% 감소');
    }
   }
  }
