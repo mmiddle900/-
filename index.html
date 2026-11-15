@@ -211,7 +211,7 @@ function nearestOpenPosition(x,y,r=.14){
  let sx=Math.max(0,Math.min(99,Math.floor(x))),sy=Math.max(0,Math.min(99,Math.floor(y)));
  const seen=new Uint8Array(10000),q=[sy*100+sx];seen[q[0]]=1;
  for(let h=0;h<q.length;h++){const id=q[h],cx=id%100,cy=(id/100)|0,px=cx+.5,py=cy+.5;
-  if(!circleHitsWall(px,py,r))return{x:px,y:py};
+  if(!terrainBlocked(cx,cy)&&!circleHitsWall(px,py,r))return{x:px,y:py};
   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,ny=cy+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=ny*100+nx;if(!seen[ni]){seen[ni]=1;q.push(ni)}}
  }return{x:.5,y:.5};
 }
