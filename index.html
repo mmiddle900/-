@@ -15,28 +15,32 @@ const colors={plain:'#668b4e',dirt:'#a18a5d',water:'#477c91',forest:'#315b3d',ro
 const terrain=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>tile(x,y)));
 function hash(x,y){let n=(x*374761393+y*668265263)>>>0;n=Math.imul(n^(n>>>13),1274126177)>>>0;return(n^(n>>>16))>>>0}function rnd(x,y){return hash(x,y)/4294967295}
 function tile(x,y){let r=rnd(x,y),b=rnd(Math.floor(x/7),Math.floor(y/7));if(x>40&&x<59&&y>44&&y<55)return'water';if(b>.82&&r<.82)return'forest';if(b<.13&&r<.65)return'rock';if(x%23<2&&y%19<13||r<.12)return'dirt';return'plain'}
-// 4방향으로 이어지는 미로형 벽을 무작위 확장한다. 벽 타일은 정확히 5,000개.
+// DFS 완전 미로 생성: 이동 가능한 빈 타일이 상하좌우로 하나의 네트워크를 이루도록 한다.
 const wallCells=new Uint8Array(N*N);let wallCount=0,wallRevision=0;
 function generateConnectedWalls(count=5000){
- wallCells.fill(0);wallCount=0;
- const frontier=[],queued=new Uint8Array(N*N),start=Math.floor(Math.random()*N*N);
- const neighbors=i=>{const x=i%N,y=(i/N)|0;const a=[];if(x>0)a.push(i-1);if(x<N-1)a.push(i+1);if(y>0)a.push(i-N);if(y<N-1)a.push(i+N);return a};
- const add=i=>{if(!wallCells[i]&&!queued[i]){queued[i]=1;frontier.push(i)}};
- wallCells[start]=1;wallCount=1;for(const n of neighbors(start))add(n);
- let guard=0;
- while(wallCount<count&&frontier.length&&guard++<N*N*30){
-  const k=Math.floor(Math.random()*frontier.length),cell=frontier[k];frontier[k]=frontier[frontier.length-1];frontier.pop();queued[cell]=0;
-  const around=neighbors(cell).reduce((v,n)=>v+wallCells[n],0);
-  const accept=around<=2||(around===3&&Math.random()<.2)||(around>=4&&Math.random()<.02);
-  if(!accept)continue;
-  wallCells[cell]=1;wallCount++;for(const n of neighbors(cell))add(n);
+ wallCells.fill(1);wallCount=N*N;
+ const W=50,H=50,visited=new Uint8Array(W*H),stack=[];
+ const start=Math.floor(Math.random()*W*H);
+ const carve=(x,y)=>{const id=y*N+x;if(wallCells[id]){wallCells[id]=0;wallCount--;}terrain[y][x]='plain';};
+ const sx=start%W,sy=(start/W)|0;visited[start]=1;stack.push(start);carve(sx*2,sy*2);
+ while(stack.length){
+  const cur=stack[stack.length-1],cx=cur%W,cy=(cur/W)|0,choices=[];
+  if(cx>0&&!visited[cur-1])choices.push(cur-1);
+  if(cx<W-1&&!visited[cur+1])choices.push(cur+1);
+  if(cy>0&&!visited[cur-W])choices.push(cur-W);
+  if(cy<H-1&&!visited[cur+W])choices.push(cur+W);
+  if(!choices.length){stack.pop();continue;}
+  const next=choices[Math.floor(Math.random()*choices.length)],nx=next%W,ny=(next/W)|0;
+  visited[next]=1;carve(cx*2+(nx-cx),cy*2+(ny-cy));carve(nx*2,ny*2);stack.push(next);
  }
- while(wallCount<count&&frontier.length){
-  const k=Math.floor(Math.random()*frontier.length),cell=frontier[k];frontier[k]=frontier[frontier.length-1];frontier.pop();queued[cell]=0;
-  if(wallCells[cell])continue;wallCells[cell]=1;wallCount++;for(const n of neighbors(cell))add(n);
+ // 한 칸을 추가로 열어 빈 공간 5,000칸을 맞추되 기존 통로와 연결한다.
+ const candidates=[];
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(wallCells[y*N+x]){
+  if((x>0&&!wallCells[y*N+x-1])||(x<N-1&&!wallCells[y*N+x+1])||(y>0&&!wallCells[(y-1)*N+x])||(y<N-1&&!wallCells[(y+1)*N+x]))candidates.push(y*N+x);
  }
+ if(candidates.length){const id=candidates[Math.floor(Math.random()*candidates.length)];wallCells[id]=0;wallCount--;terrain[(id/N)|0][id%N]='plain';}
  wallRevision++;clearPathCaches();placeAllActorsOnOpenTiles();draw();
- log('미로형 벽 생성 완료 · '+wallCount.toLocaleString()+'개 · 전체 연결');
+ log('4방향 연결 미로 생성 완료 · 벽 '+wallCount.toLocaleString()+'개 · 이동 가능 공간 전체 연결');
 }
 
 let cam={x:0,y:0,z:1},dpr=1,grid=true,drag=false,last=null,keys={};
@@ -355,6 +359,7 @@ const extraCombatants=[];
 window.registerCombatant=function(actor){
  if(!actor||typeof actor!=='object'||!Number.isFinite(actor.x)||!Number.isFinite(actor.y)||!Number.isFinite(actor.hp))throw new Error('전투 캐릭터는 x, y, hp가 필요합니다');
  actor.active=actor.active!==false;actor.faction=actor.faction||'hostile';actor.max=actor.max||actor.hp;
+ if(wallCount&&actor.active&&circleHitsWall(actor.x,actor.y,actor.radius||.3)){const p=nearestOpenPosition(actor.x,actor.y,actor.radius||.3);actor.x=p.x;actor.y=p.y;}
  if(!extraCombatants.includes(actor))extraCombatants.push(actor);
  return actor;
 };
