@@ -206,16 +206,16 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    }else{
     a.attackWindup=Math.max(0,a.attackWindup-dt);
     if(a.attackWindup<=0){
-     damageDummy(50,'영혼 늑대');
+     damageDummy(10,'영혼 늑대');
      wolfHitFx(D.x,D.y,a.x,a.y);
-     a.hitLock=.6;
+     a.hitLock=.05;
      a.attackWindup=null;
      a.attackFlash=.18;
      D.stunTimer=.5;
      D.vx=0;D.vy=0;
      ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
      burst(D.x,D.y,'#8edcff',16,2.6,2);
-     log('영혼 늑대 공격 성공 · 50 피해 · 0.5초 기절');
+     log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.05초 · 0.5초 기절');
     }
    }
   }
