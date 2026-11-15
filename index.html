@@ -3,7 +3,7 @@
 <style>
 :root{color-scheme:dark;--bg:#0b1118;--panel:#141f2a;--line:#304253;--txt:#e9f3ff;--muted:#9fb2c4}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,"Segoe UI",sans-serif}header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}h1{font-size:20px;margin:0}header small{color:var(--muted)}main{max-width:1500px;margin:auto;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:14px}.arena,.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.bar{padding:9px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}button{background:#263b50;color:var(--txt);border:1px solid #49647e;border-radius:7px;padding:8px 11px;font-weight:650;cursor:pointer}button:hover{background:#34536e}#viewport{height:min(73vh,800px);min-height:440px;position:relative;background:#18251c;touch-action:none}canvas{width:100%;height:100%;display:block}.hint{padding:8px 11px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}.panel{padding:14px;height:max-content}.panel h2{font-size:16px;margin:0 0 12px}.stat{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}.stat span{color:var(--muted)}.meter{height:9px;background:#263441;border-radius:9px;overflow:hidden;margin:5px 0 10px}.meter i{height:100%;display:block;width:100%;background:#28b5c8}.hp i{background:#dc5966}.stamina i{background:#d7b64c}.skills{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}.skill{background:#1b2b3a;border:1px solid #3a5268;border-radius:8px;padding:9px;font-size:12px}.skill b{display:block;margin-bottom:4px}.skill span{color:#a9c9e5}.section{font-size:12px;color:#8fb5d4;margin:15px 0 5px}.log{height:130px;overflow:auto;font-size:11px;line-height:1.5;color:#c0d0dd;background:#0d1720;border-radius:7px;padding:8px}.tag{color:#78d9f2}@media(max-width:900px){main{grid-template-columns:1fr}.panel{display:block}#viewport{height:60vh;min-height:380px}}
 </style></head><body>
-<header><div><h1>100×100 전장</h1><small>게임 프로토타입 v0.3.0 · 자율 전투 AI</small></div><small>100m × 100m · 10,000 타일</small></header>
+<header><div><h1>100×100 전장</h1><small>게임 프로토타입 v0.3.1 · 경로 탐색 AI</small></div><small>100m × 100m · 10,000 타일</small></header>
 <main><section class="arena"><div class="bar"><button id="zoomout">−</button><button id="zoomin">＋</button><button id="fit">전체 맵</button><button id="grid">격자 끄기</button><button id="reset">전투 초기화</button><span style="font-size:12px;color:#8fb5d4;margin-left:auto">제너럴 K: AI 자동 전투</span><span id="zoomlabel" style="font-size:12px;color:#9fb2c4">100%</span></div><div id="viewport"><canvas id="map"></canvas></div><div class="hint">제너럴 K 자율 AI: 적 탐색 → 접근/추격 → 스킬 판단 → 공격 · 드래그: 카메라 이동 · 휠: 확대/축소</div></section>
 <aside class="panel"><h2>제너럴 K</h2><div class="stat"><span>체력</span><b id="ghp">5000 / 5000</b></div><div class="meter hp"><i id="ghpbar"></i></div><div class="stat"><span>스테미나</span><b id="stam">100 / 100</b></div><div class="meter stamina"><i id="stambar"></i></div><div class="stat"><span>위치</span><b id="gpos">20, 50</b></div><div class="stat"><span>AI 행동</span><b id="aiState">적 탐색</b></div><div class="stat"><span>이동 속도</span><b>3m/s · 달리기 6m/s</b></div><div class="stat"><span>훈련용 더미</span><b id="dhp">10000 / 10000</b></div><div class="meter hp"><i id="dhpbar" style="background:#e2a64b"></i></div><div class="stat"><span>더미 위치</span><b id="dpos">65, 50</b></div>
 <div class="section">스킬 상태</div><div class="skills"><div class="skill"><b>1 · 영혼 베기</b><span id="s1">대기 중 · 사거리 2m</span></div><div class="skill"><b>2 · 영혼 사슬</b><span id="s2">준비 완료</span></div><div class="skill"><b>3 · 영혼 늑대</b><span id="s3">준비 완료</span></div><div class="skill"><b>4 · 영혼 절멸자</b><span>0.5초마다 100 피해 · 반경 3m</span></div></div>
@@ -50,7 +50,28 @@ function chainCast(){if(G.chain>0||D.hp<=0||D.pull)return;G.chain=5;let target={
 function wolvesCast(){if(G.wolf>0)return;G.wolf=20;let dir=norm(D.x-G.x,D.y-G.y),back={x:-dir.x,y:-dir.y};for(let i=0;i<3;i++){G.wolves.push({x:Math.max(1,Math.min(99,G.x+back.x*5+dir.y*(i-1)*.8)),y:Math.max(1,Math.min(99,G.y+back.y*5-dir.x*(i-1)*.8)),hp:1000,hitLock:0})}log('AI 판단: 영혼 늑대 3마리 소환')}
 function kick(){if(D.hp<=0)return;damageDummy(1000,'발차기');let v=norm(D.x-G.x,D.y-G.y);D.x=Math.max(1,Math.min(99,G.x+v.x*5));D.y=Math.max(1,Math.min(99,G.y+v.y*5));D.pull=null;G.kickFlash=.25}
 function terrainBlocked(x,y){let tx=Math.max(0,Math.min(99,Math.floor(x))),ty=Math.max(0,Math.min(99,Math.floor(y)));return terrain[ty][tx]==='water'||terrain[ty][tx]==='rock'}
-function moveToward(entity,target,speed,dt){let v=norm(target.x-entity.x,target.y-entity.y),step=speed*dt,nx=entity.x+v.x*step,ny=entity.y+v.y*step;if(!terrainBlocked(nx,entity.y))entity.x=nx;if(!terrainBlocked(entity.x,ny))entity.y=ny;entity.x=Math.max(1,Math.min(99,entity.x));entity.y=Math.max(1,Math.min(99,entity.y))}
+function findPath(sx,sy,tx,ty){
+ const start={x:Math.max(0,Math.min(99,Math.floor(sx))),y:Math.max(0,Math.min(99,Math.floor(sy)))};
+ const goal={x:Math.max(0,Math.min(99,Math.floor(tx))),y:Math.max(0,Math.min(99,Math.floor(ty)))};
+ const id=(x,y)=>y*100+x,prev=new Int32Array(10000);prev.fill(-2);
+ const queue=new Int32Array(10000);let head=0,tail=0;queue[tail++]=id(start.x,start.y);prev[id(start.x,start.y)]=-1;
+ const dirs=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+ let found=-1;
+ while(head<tail){const cur=queue[head++],x=cur%100,y=Math.floor(cur/100);if(x===goal.x&&y===goal.y){found=cur;break}
+  for(const [dx,dy] of dirs){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=100||ny>=100)continue;const ni=id(nx,ny);if(prev[ni]!==-2||terrainBlocked(nx+.5,ny+.5))continue;if(dx&&dy&&(terrainBlocked(x+dx+.5,y+.5)||terrainBlocked(x+.5,y+dy+.5)))continue;prev[ni]=cur;queue[tail++]=ni}
+ }
+ if(found<0)return null;const path=[];for(let at=found;at!==-1;at=prev[at])path.push({x:at%100+.5,y:Math.floor(at/100)+.5});path.reverse();return path;
+}
+G.path=null;G.pathTimer=0;
+function moveToward(entity,target,speed,dt){
+ if(entity===G){G.pathTimer-=dt;if(!G.path||G.pathTimer<=0){G.path=findPath(G.x,G.y,target.x,target.y);G.pathTimer=.45}
+  if(G.path&&G.path.length>1){while(G.path.length>1&&dist(entity,G.path[1])<.22)G.path.shift();const waypoint=G.path[Math.min(1,G.path.length-1)];let v=norm(waypoint.x-entity.x,waypoint.y-entity.y),step=speed*dt;entity.x+=v.x*step;entity.y+=v.y*step;entity.x=Math.max(.5,Math.min(99.5,entity.x));entity.y=Math.max(.5,Math.min(99.5,entity.y));return}
+ }
+ let v=norm(target.x-entity.x,target.y-entity.y),step=speed*dt,nx=entity.x+v.x*step,ny=entity.y+v.y*step;
+ if(!terrainBlocked(nx,entity.y))entity.x=nx;
+ if(!terrainBlocked(entity.x,ny))entity.y=ny;
+ entity.x=Math.max(.5,Math.min(99.5,entity.x));entity.y=Math.max(.5,Math.min(99.5,entity.y));
+}
 function update(dt){
  G.st=Math.min(G.stMax,G.st+dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
  if(D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=65;D.y=50;D.hp=D.max;D.respawn=0;log('훈련용 더미 재생성')}G.state='다음 적 대기';}
@@ -58,7 +79,7 @@ function update(dt){
   let d=dist(G,D),dir=norm(D.x-G.x,D.y-G.y);
   // AI 판단 우선순위: 소환 유지 > 원거리 사슬 > 접근/추격 > 근접 공격
   if(G.wolf<=0)wolvesCast();
-  if(!D.pull&&d>18&&G.chain<=0){chainCast()}
+  if(!D.pull&&d>18&&d<=30&&G.chain<=0){chainCast()}
   if(D.pull){G.state='사슬로 적 제압 중';D.pull.elapsed+=dt;let q=Math.min(1,D.pull.elapsed/D.pull.duration);D.x=D.pull.fromX+(G.x-D.pull.fromX)*q;D.y=D.pull.fromY+(G.y-D.pull.fromY)*q;if(q>=1)kick()}
   else if(d>2){let sprint=d>12&&G.st>=.25;let speed=sprint?6:3;if(sprint)G.st=Math.max(0,G.st-dt*4);G.state=sprint?'달리며 추격':'적에게 접근';moveToward(G,D,speed,dt)}
   else {G.state='영혼 베기 공격';if(G.slashTimer<=0){damageDummy(100,'영혼 베기');G.slashTimer=.25}}
@@ -72,7 +93,7 @@ function update(dt){
 }
 let prev=performance.now(),acc=0;function frame(now){acc+=Math.min(.1,(now-prev)/1000);prev=now;const step=1/60;while(acc>=step){update(step);acc-=step}updateUI();draw();requestAnimationFrame(frame)}
 function updateUI(){$('ghp').textContent=G.hp+' / '+G.max;$('ghpbar').style.width=(G.hp/G.max*100)+'%';$('stam').textContent=Math.floor(G.st)+' / 100';$('stambar').style.width=G.st+'%';$('gpos').textContent=G.x.toFixed(1)+', '+G.y.toFixed(1);$('aiState').textContent=G.state;$('dhp').textContent=Math.ceil(D.hp)+' / '+D.max;$('dhpbar').style.width=(D.hp/D.max*100)+'%';$('dpos').textContent=D.x.toFixed(1)+', '+D.y.toFixed(1);$('s1').textContent=dist(G,D)<=2?'공격 범위 내':'사거리 2m';$('s2').textContent=G.chain>0?G.chain.toFixed(1)+'초':'준비 완료';$('s3').textContent=G.wolf>0?G.wolf.toFixed(1)+'초':'준비 완료'}
-function reset(){G.x=20;G.y=50;G.hp=5000;G.st=100;G.attack=0;G.chain=0;G.wolf=0;G.aura=0;G.slashTimer=0;G.wolves=[];G.chains=[];G.state='적 탐색';D.x=65;D.y=50;D.hp=D.max;D.pull=null;D.respawn=0;logs=[];log('전투 초기화 완료')}
+function reset(){G.x=20;G.y=50;G.path=null;G.pathTimer=0;G.hp=5000;G.st=100;G.attack=0;G.chain=0;G.wolf=0;G.aura=0;G.slashTimer=0;G.wolves=[];G.chains=[];G.state='적 탐색';D.x=65;D.y=50;D.hp=D.max;D.pull=null;D.respawn=0;logs=[];log('전투 초기화 완료')}
 function point(e){let r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 view.addEventListener('pointerdown',e=>{drag=true;last={x:e.clientX,y:e.clientY};view.setPointerCapture(e.pointerId)});view.addEventListener('pointermove',e=>{if(drag){cam.x+=e.clientX-last.x;cam.y+=e.clientY-last.y;last={x:e.clientX,y:e.clientY};draw()}});view.addEventListener('pointerup',()=>drag=false);view.addEventListener('wheel',e=>{e.preventDefault();let p=point(e),old=cam.z,nz=Math.max(.18,Math.min(3.5,old*(e.deltaY<0?1.12:.89)));cam.x=p.x-(p.x-cam.x)*nz/old;cam.y=p.y-(p.y-cam.y)*nz/old;cam.z=nz;zoomlabel();draw()},{passive:false});
 $('zoomin').onclick=()=>zoom(1.25);$('zoomout').onclick=()=>zoom(.8);function zoom(f){let p={x:canvas.clientWidth/2,y:canvas.clientHeight/2},o=cam.z;cam.z=Math.max(.18,Math.min(3.5,o*f));cam.x=p.x-(p.x-cam.x)*cam.z/o;cam.y=p.y-(p.y-cam.y)*cam.z/o;zoomlabel();draw()}
