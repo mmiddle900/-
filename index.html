@@ -194,7 +194,8 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
   }else if(a.attackWindup>0){
    a.attackWindup=Math.max(0,a.attackWindup-dt);
   }
-  if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=wolfAttackRange){
+  // 준비가 끝난 공격은 대상이 움직여도 취소하지 않고 명중 처리한다.
+  if(a.attackWindup===0&&a.hitLock<=0){
    damageDummy(50,'영혼 늑대');
    wolfHitFx(D.x,D.y,a.x,a.y);
    a.hitLock=.5;
