@@ -126,7 +126,7 @@ function moveToward(entity,target,speed,dt){
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d'].includes(k)){keys[k]=true;e.preventDefault()}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 window.addEventListener('blur',()=>{keys={}});
-function updatePlayerB(dt){if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy);D.vx=v.x*7;D.vy=v.y*7;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
+function updatePlayerB(dt){if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy);D.vx=v.x*10;D.vy=v.y*10;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
 function update(dt){updateEffects(dt);updatePlayerB(dt);
  G.st=Math.min(G.stMax,G.st+dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
  if(D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
