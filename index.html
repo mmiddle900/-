@@ -186,7 +186,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    // 돌진 단계에서는 각 늑대가 한 번만 물고, 공격 직후 자기 차단 위치로 돌아간다.
    const wolfTarget=G.wolfPhase==='charging'&&!a.biteDone?{x:D.x,y:D.y}:interceptTarget;
    if(dist(a,wolfTarget)>.035)moveToward(a,wolfTarget,dashing?15:10,dt);
-   if(G.wolfPhase==='charging'&&!a.biteDone&&D.hp>0&&dist(a,D)<=.62){
+   if(G.wolfPhase==='charging'&&!a.biteDone&&D.hp>0&&dist(a,D)<=1.05){
     damageDummy(50,'영혼 늑대');wolfHitFx(D.x,D.y,a.x,a.y);
     a.biteDone=true;a.hitLock=.5;a.attackWindup=null;a.attackFlash=.18;a.returning=true;
     D.slowTimer=.1;D.vx=0;D.vy=0;
@@ -197,11 +197,8 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
  // 포위 대열이 완성되면 전 늑대가 한 번씩 돌진해 물어뜯는다.
  const ordered=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
  if(G.wolfPhase!=='charging'&&G.wolves.length>=3&&D.hp>0){
-  const lineReady=ordered.slice(0,3).every(w=>w.interceptTarget&&dist(w,w.interceptTarget)<=1.15);
-  const left=ordered[0]?.interceptTarget,right=ordered[2]?.interceptTarget;
-  let nearBarrier=false;
-  if(left&&right){const vx=right.x-left.x,vy=right.y-left.y,l2=vx*vx+vy*vy;const t=l2?Math.max(0,Math.min(1,((D.x-left.x)*vx+(D.y-left.y)*vy)/l2)):0;nearBarrier=Math.hypot(D.x-(left.x+t*vx),D.y-(left.y+t*vy))<=3.5;}
-  if(lineReady&&nearBarrier){
+  const lineReady=ordered.slice(0,3).every(w=>w.interceptTarget&&dist(w,w.interceptTarget)<=1.8);
+  if(lineReady){
    G.wolfPhase='charging';G.wolfBiteMode=true;
    for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
    playSfx('wolf');ringFx(D.x,D.y,'#8eeaff',.9,.35,.1);
@@ -215,7 +212,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
   log('늑대 전원 공격 완료 · 일렬 포위 대열 재형성');
  }
  // B가 멀리 벗어나면 돌진을 중단하고 다시 차단 대열을 만든다.
- if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>6)){
+ if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>12)){
   G.wolfPhase='forming';G.wolfBiteMode=false;
   for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
   log('B가 포위망에서 벗어남 · 늑대들이 다시 차단선을 형성한다');
