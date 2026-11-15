@@ -89,8 +89,18 @@ function update(dt){updatePlayerB(dt);
   // 영혼 절멸자: 근처 3m 안의 적에게 0.5초마다 100 피해
   G.aura+=dt;if(G.aura>=.5){G.aura-=.5;if(dist(G,D)<=3)damageDummy(100,'영혼 절멸자')}
  }
- // 늑대 명중 시 적을 제너럴 K 방향으로 날려 보낸다.
- if(D.knockback&&D.hp>0){let k=D.knockback,step=Math.min(dt,k.time);D.x=Math.max(.5,Math.min(99.5,D.x+k.vx*step));D.y=Math.max(.5,Math.min(99.5,D.y+k.vy*step));k.time-=step;if(k.time<=0)D.knockback=null}
+ // 늑대 명중 시 대상이 제너럴 K와 맞닿을 때까지 제너럴 K 방향으로 이동시킨다.
+ if(D.knockback&&D.hp>0){
+  const gap=dist(G,D),contact=.64,stepTime=dt;
+  if(gap<=contact){D.knockback=null;D.vx=0;D.vy=0;}
+  else{
+   const towardK=norm(G.x-D.x,G.y-D.y),travel=Math.min(28*stepTime,gap-contact);
+   D.x=Math.max(.5,Math.min(99.5,D.x+towardK.x*travel));
+   D.y=Math.max(.5,Math.min(99.5,D.y+towardK.y*travel));
+   D.vx=towardK.x*28;D.vy=towardK.y*28;
+   if(dist(G,D)<=contact+.001){D.knockback=null;D.vx=0;D.vy=0;}
+  }
+ }
  // 영혼 늑대: 근접 거리 판정을 넉넉하게 잡아 충돌 분리 때문에 공격이 막히지 않게 한다.
  for(let i=G.wolves.length-1;i>=0;i--){
   const a=G.wolves[i];
@@ -104,7 +114,7 @@ function update(dt){updatePlayerB(dt);
    a.hitLock=.6;
    a.attackFlash=.18;
    const towardK=norm(G.x-D.x,G.y-D.y);
-   D.knockback={vx:towardK.x*28,vy:towardK.y*28,time:.8};
+   D.knockback={};
    D.vx=towardK.x*28;D.vy=towardK.y*28;
    log('영혼 늑대 접촉 공격 성공 · 50 피해');
   }
