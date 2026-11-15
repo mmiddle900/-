@@ -22,7 +22,7 @@ const particles=[],visualEffects=[];
 function burst(x,y,color,count=18,power=3,size=2.5){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,v=power*(.35+Math.random()*.9);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.35+Math.random()*.45,max:.8,size:size*(.5+Math.random()),color})}}
 function ringFx(x,y,color,radius=2,duration=.45,width=.12){visualEffects.push({type:'ring',x,y,color,radius,duration,life:duration,width})}
 function slashFx(x,y){visualEffects.push({type:'slash',x,y,color:'#8cecff',radius:2.1,duration:.28,life:.28});burst(x,y,'#a9efff',24,4,2.2)}
-function wolfHitFx(x,y,fromX,fromY){const angle=Math.atan2(y-fromY,x-fromX);visualEffects.push({type:'wolfStrike',x,y,angle,color:'#a4efff',radius:2.35,duration:.62,life:.62});ringFx(x,y,'#8eeaff',1.65,.5,.2);burst(x,y,'#c8f7ff',42,5.2,3.4);burst(x,y,'#319cff',24,3.4,2.8)}
+function wolfHitFx(x,y,fromX,fromY){const angle=Math.atan2(y-fromY,x-fromX);visualEffects.push({type:'wolfStrike',x,y,angle,color:'#a4efff',radius:.42,duration:.28,life:.28});ringFx(x,y,'#8eeaff',.3,.22,.07);burst(x,y,'#c8f7ff',12,1.35,1.4);burst(x,y,'#319cff',7,1.1,1.1)}
 function updateEffects(dt){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.08,dt);p.vy*=Math.pow(.08,dt);if(p.life<=0)particles.splice(i,1)}for(let i=visualEffects.length-1;i>=0;i--){visualEffects[i].life-=dt;if(visualEffects[i].life<=0)visualEffects.splice(i,1)}}
 const $=id=>document.getElementById(id);
 // 외부 MP3를 사용하지 않고 Web Audio로 기술별 효과음을 실시간 합성한다.
@@ -82,7 +82,7 @@ function draw(){
  if(grid&&s>5){ctx.strokeStyle='#15251b66';ctx.lineWidth=1;ctx.beginPath();for(let i=0;i<=N;i++){let p=cam.x+i*s,q=cam.y+i*s;ctx.moveTo(p,cam.y);ctx.lineTo(p,cam.y+WORLD*cam.z);ctx.moveTo(cam.x,q);ctx.lineTo(cam.x+WORLD*cam.z,q)}ctx.stroke()}
  ctx.strokeStyle='#d7e6d4';ctx.lineWidth=2;ctx.strokeRect(cam.x,cam.y,WORLD*cam.z,WORLD*cam.z);
  // 고품질 전투 이펙트: 발광 파편, 확장 충격파, 초승달형 참격
- for(const e of visualEffects){const p=worldToScreen(e.x,e.y),t=1-e.life/e.duration;ctx.save();ctx.globalAlpha=Math.max(0,e.life/e.duration);if(e.type==='ring'){ctx.strokeStyle=e.color;ctx.shadowColor=e.color;ctx.shadowBlur=22;ctx.lineWidth=Math.max(1,e.width*s*(1-t*.55));ctx.beginPath();ctx.arc(p.x,p.y,(.2+e.radius*t)*s,0,Math.PI*2);ctx.stroke()}else if(e.type==='slash'){ctx.translate(p.x,p.y);ctx.rotate(-.65+t*1.3);ctx.strokeStyle=e.color;ctx.shadowColor=e.color;ctx.shadowBlur=24;ctx.lineWidth=Math.max(2,s*.16*(1-t));ctx.beginPath();ctx.arc(0,0,e.radius*s,-1.05,.8);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(1,s*.035);ctx.beginPath();ctx.arc(0,0,e.radius*s,-1.05,.8);ctx.stroke()}else if(e.type==='wolfStrike'){ctx.translate(p.x,p.y);ctx.rotate(e.angle);const fade=1-t;ctx.shadowColor='#8eeaff';ctx.shadowBlur=34;ctx.lineCap='round';ctx.strokeStyle='#e9fcff';ctx.lineWidth=Math.max(3,s*.2*fade);ctx.beginPath();ctx.moveTo(-.9*s,-1.25*s);ctx.quadraticCurveTo(1.25*s,-.2*s,1.15*s,1.35*s);ctx.stroke();ctx.strokeStyle='#39aaff';ctx.lineWidth=Math.max(2,s*.1*fade);ctx.beginPath();ctx.moveTo(-1.15*s,-1.5*s);ctx.quadraticCurveTo(1.65*s,-.15*s,1.35*s,1.55*s);ctx.stroke();ctx.fillStyle='#fff';ctx.globalAlpha=Math.max(0,1-t*1.8);ctx.beginPath();ctx.arc(0,0,(.18+t*.8)*s,0,Math.PI*2);ctx.fill()}ctx.restore()}
+ for(const e of visualEffects){const p=worldToScreen(e.x,e.y),t=1-e.life/e.duration;ctx.save();ctx.globalAlpha=Math.max(0,e.life/e.duration);if(e.type==='ring'){ctx.strokeStyle=e.color;ctx.shadowColor=e.color;ctx.shadowBlur=22;ctx.lineWidth=Math.max(1,e.width*s*(1-t*.55));ctx.beginPath();ctx.arc(p.x,p.y,(.2+e.radius*t)*s,0,Math.PI*2);ctx.stroke()}else if(e.type==='slash'){ctx.translate(p.x,p.y);ctx.rotate(-.65+t*1.3);ctx.strokeStyle=e.color;ctx.shadowColor=e.color;ctx.shadowBlur=24;ctx.lineWidth=Math.max(2,s*.16*(1-t));ctx.beginPath();ctx.arc(0,0,e.radius*s,-1.05,.8);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(1,s*.035);ctx.beginPath();ctx.arc(0,0,e.radius*s,-1.05,.8);ctx.stroke()}else if(e.type==='wolfStrike'){ctx.translate(p.x,p.y);ctx.rotate(e.angle);const fade=1-t;ctx.shadowColor='#8eeaff';ctx.shadowBlur=10;ctx.lineCap='round';ctx.strokeStyle='#e9fcff';ctx.lineWidth=Math.max(1.5,s*.055*fade);ctx.beginPath();ctx.moveTo(-.18*s,-.24*s);ctx.quadraticCurveTo(.24*s,-.04*s,.22*s,.27*s);ctx.stroke();ctx.strokeStyle='#39aaff';ctx.lineWidth=Math.max(1,s*.03*fade);ctx.beginPath();ctx.moveTo(-.22*s,-.3*s);ctx.quadraticCurveTo(.3*s,-.03*s,.25*s,.31*s);ctx.stroke();ctx.fillStyle='#fff';ctx.globalAlpha=Math.max(0,1-t*1.8);ctx.beginPath();ctx.arc(0,0,(.04+t*.12)*s,0,Math.PI*2);ctx.fill()}ctx.restore()}
  for(const p of particles){const q=worldToScreen(p.x,p.y);ctx.save();ctx.globalAlpha=Math.max(0,p.life/.8);ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(q.x,q.y,Math.max(1,p.size*s*.045),0,Math.PI*2);ctx.fill();ctx.restore()}
  // wolves
  for(const a of G.wolves){let p=worldToScreen(a.x,a.y),target=worldToScreen(D.x,D.y),ang=Math.atan2(target.y-p.y,target.x-p.x),r=Math.max(3,.14*s);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(ang);ctx.shadowColor='#39aaff';ctx.shadowBlur=22;ctx.fillStyle='#1265c7';ctx.strokeStyle='#8bdcff';ctx.lineWidth=Math.max(1,s*.025);ctx.beginPath();ctx.moveTo(r*1.8,0);ctx.lineTo(r*.25,-r*.8);ctx.lineTo(-r*1.1,-r*.55);ctx.lineTo(-r*1.45,0);ctx.lineTo(-r*1.1,r*.55);ctx.lineTo(r*.25,r*.8);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#dffaff';ctx.shadowColor='#8ffaff';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(r*.8,-r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(r*.8,r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#e7f5ff';ctx.font='10px sans-serif';ctx.fillText('늑대 '+Math.ceil(a.hp),p.x-17,p.y-12)}
@@ -127,7 +127,7 @@ function moveToward(entity,target,speed,dt){
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(['w','a','s','d'].includes(k)){keys[k]=true;e.preventDefault()}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
 window.addEventListener('blur',()=>{keys={}});
-function updatePlayerB(dt){D.slowTimer=Math.max(0,(D.slowTimer||0)-dt);if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy),speed=D.slowTimer>0?20:40;D.vx=v.x*speed;D.vy=v.y*speed;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
+function updatePlayerB(dt){D.slowTimer=Math.max(0,(D.slowTimer||0)-dt);if(D.hp<=0||D.pull||D.knockback){D.vx=D.knockback?D.knockback.vx:0;D.vy=D.knockback?D.knockback.vy:0;return}let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy),speed=D.slowTimer>0?3.5:7;D.vx=v.x*speed;D.vy=v.y*speed;D.x=Math.max(.5,Math.min(99.5,D.x+D.vx*dt));D.y=Math.max(.5,Math.min(99.5,D.y+D.vy*dt))}else{D.vx=0;D.vy=0}}
 function update(dt){updateEffects(dt);updatePlayerB(dt);
  G.st=Math.min(G.stMax,G.st+dt);G.chain=Math.max(0,G.chain-dt);G.wolf=Math.max(0,G.wolf-dt);G.kickFlash=Math.max(0,G.kickFlash-dt);G.slashTimer=Math.max(0,G.slashTimer-dt);D.flash=Math.max(0,D.flash-dt);
  if(D.hp<=0){D.respawn-=dt;if(D.respawn<=0){D.x=50;D.y=8;D.hp=D.max;D.respawn=0;log('B가 북부에서 재생성')}G.state='다음 적 대기';}
@@ -161,15 +161,18 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(D.hp<=0)continue;
    const playerSpeed=Math.hypot(D.vx||0,D.vy||0);
    const travelDir=playerSpeed>.1?norm(D.vx,D.vy):norm(G.x-D.x,G.y-D.y);
-   const leadDistance=Math.min(5,playerSpeed*.25);
+   const leadDistance=Math.min(3,playerSpeed*.35);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
    const wolfCount=Math.max(1,G.wolves.length);
    const towardPlayer=norm(D.x-G.x,D.y-G.y);
-   const lateral={x:-towardPlayer.y,y:towardPlayer.x};
+   // 차단선은 B의 현재 진행 방향에 수직으로 배치한다.
+   const lateral={x:-travelDir.y,y:travelDir.x};
+   // 차단선이 제너럴 K와 B 사이를 가로막도록 방향을 정렬한다.
+   if(lateral.x*towardPlayer.x+lateral.y*towardPlayer.y<0){lateral.x=-lateral.x;lateral.y=-lateral.y;}
    const orderedWolves=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
    const slot=Math.max(0,orderedWolves.indexOf(a));
    // 늑대 수에 따라 차단선의 폭만 늘리고, 원형으로 둘러싸지 않는다.
-   const spacing=.45;
+   const spacing=1.25;
    const lateralOffset=(slot-(wolfCount-1)/2)*spacing;
    const barrierDistance=.45;
    const interceptTarget={
@@ -187,7 +190,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
    const wolfGap=dist(a,D);
-   // 늑대의 근접 공격 사거리를 0.75m에서 0.3m로 추가 축소한다.
+   // 늑대의 실제 근접 공격 판정은 중심 간 거리 0.3m로 유지한다.
    const wolfAttackRange=.3;
    if(a.attackWindup===null||a.attackWindup===undefined){
     if(wolfGap<=wolfAttackRange&&a.hitLock<=0){
@@ -208,8 +211,8 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
     a.attackFlash=.18;
     D.slowTimer=.1;
     D.vx=0;D.vy=0;
-    ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
-    burst(D.x,D.y,'#8edcff',16,2.6,2);
+    ringFx(D.x,D.y,'#8edcff',.3,.2,.07);
+    burst(D.x,D.y,'#8edcff',8,1.2,1.1);
     log('영혼 늑대 공격 성공 · 50 피해 · 공격 간격 0.5초 · 사거리 0.3m');
    }
   }
