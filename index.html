@@ -16,7 +16,7 @@ const terrain=Array.from({length:N},(_,y)=>Array.from({length:N},(_,x)=>tile(x,y
 function hash(x,y){let n=(x*374761393+y*668265263)>>>0;n=Math.imul(n^(n>>>13),1274126177)>>>0;return(n^(n>>>16))>>>0}function rnd(x,y){return hash(x,y)/4294967295}
 function tile(x,y){let r=rnd(x,y),b=rnd(Math.floor(x/7),Math.floor(y/7));if(x>40&&x<59&&y>44&&y<55)return'water';if(b>.82&&r<.82)return'forest';if(b<.13&&r<.65)return'rock';if(x%23<2&&y%19<13||r<.12)return'dirt';return'plain'}
 let cam={x:0,y:0,z:1},dpr=1,grid=true,drag=false,last=null,keys={};
-const G={x:20,y:50,hp:5000,max:5000,st:100,stMax:100,attack:0,chain:0,wolf:0,aura:0,chains:[],wolves:[],wolfBiteMode:false,kickFlash:0,state:'적 탐색',slashTimer:0,wolfTimer:0,chainPending:false};
+const G={x:20,y:50,hp:5000,max:5000,st:100,stMax:100,attack:0,chain:0,wolf:0,aura:0,chains:[],wolves:[],wolfBiteMode:false,wolfPhase:'forming',kickFlash:0,state:'적 탐색',slashTimer:0,wolfTimer:0,chainPending:false};
 let D={x:50,y:8,hp:10000,max:10000,flash:0,pull:null,knockback:null,slowTimer:0,vx:0,vy:0,respawn:0},logs=[];
 const particles=[],visualEffects=[];
 function burst(x,y,color,count=18,power=3,size=2.5){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,v=power*(.35+Math.random()*.9);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.35+Math.random()*.45,max:.8,size:size*(.5+Math.random()),color})}}
@@ -180,56 +180,46 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
     y:Math.max(1.2,Math.min(98.8,predicted.y+towardPlayer.y*barrierDistance+lateral.y*lateralOffset))
    };
    a.interceptTarget=interceptTarget;
-   // 차단선이 완성된 뒤에는 늑대들이 B에게 달려들어 물어뜯는다.
-   const wolfTarget=G.wolfBiteMode?{x:D.x,y:D.y}:interceptTarget;
    a.dashCooldown=(a.dashCooldown??3)-dt;
-   if(a.dashCooldown<=0&&!(a.dashTimer>0)){
-    a.dashCooldown=3;
-    a.dashTimer=1;
-    ringFx(a.x,a.y,'#67caff',.55,.18,.08);
-    burst(a.x,a.y,'#8edcff',8,1.8,.45);
-   }
-   const dashing=a.dashTimer>0;
-   if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
+   if(a.dashCooldown<=0&&!(a.dashTimer>0)){a.dashCooldown=3;a.dashTimer=1;ringFx(a.x,a.y,'#67caff',.55,.18,.08);burst(a.x,a.y,'#8edcff',8,1.8,.45);}
+   const dashing=a.dashTimer>0;if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
+   // 돌진 단계에서는 각 늑대가 한 번만 물고, 공격 직후 자기 차단 위치로 돌아간다.
+   const wolfTarget=G.wolfPhase==='charging'&&!a.biteDone?{x:D.x,y:D.y}:interceptTarget;
    if(dist(a,wolfTarget)>.035)moveToward(a,wolfTarget,dashing?15:10,dt);
-   const wolfGap=dist(a,D);
-   // 차단 성공 전에는 접근하지 않고, 성공 후에는 물어뜯을 수 있도록 사거리를 넓힌다.
-   const wolfAttackRange=G.wolfBiteMode ? .8 : .3;
-   if(a.attackWindup===null||a.attackWindup===undefined){
-    if(wolfGap<=wolfAttackRange&&a.hitLock<=0){
-     a.attackWindup=.5;
-     log('영혼 늑대 공격 준비 시작');
-    }
-   }else if(wolfGap>wolfAttackRange){
-    // 준비 도중 사거리 밖으로 벗어나면 공격을 취소한다.
-    a.attackWindup=null;
-   }else if(a.attackWindup>0){
-    a.attackWindup=Math.max(0,a.attackWindup-dt);
-   }
-   if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=wolfAttackRange){
-    damageDummy(50,'영혼 늑대');
-    wolfHitFx(D.x,D.y,a.x,a.y);
-    a.hitLock=.5;
-    a.attackWindup=null;
-    a.attackFlash=.18;
-    D.slowTimer=.1;
-    D.vx=0;D.vy=0;
-    ringFx(D.x,D.y,'#8edcff',.3,.2,.07);
-    burst(D.x,D.y,'#8edcff',8,1.2,1.1);
-    log('영혼 늑대 물어뜯기 성공 · 50 피해 · 공격 간격 0.5초');
+   if(G.wolfPhase==='charging'&&!a.biteDone&&D.hp>0&&dist(a,D)<=.62){
+    damageDummy(50,'영혼 늑대');wolfHitFx(D.x,D.y,a.x,a.y);
+    a.biteDone=true;a.hitLock=.5;a.attackWindup=null;a.attackFlash=.18;a.returning=true;
+    D.slowTimer=.1;D.vx=0;D.vy=0;
+    ringFx(D.x,D.y,'#8edcff',.3,.2,.07);burst(D.x,D.y,'#8edcff',8,1.2,1.1);
+    log('영혼 늑대 물어뜯기 성공 · 50 피해 · 1회 공격 후 복귀');
    }
   }
- // 차단선의 늑대 3마리가 제자리에 모이고 B가 차단선에 접근하면 포위 성공으로 판정한다.
- if(!G.wolfBiteMode&&G.wolves.length>=3&&D.hp>0){
-  const ordered=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
-  const lineReady=ordered.slice(0,3).every(w=>w.interceptTarget&&dist(w,w.interceptTarget)<=.6);
+ // 포위 대열이 완성되면 전 늑대가 한 번씩 돌진해 물어뜯는다.
+ const ordered=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
+ if(G.wolfPhase!=='charging'&&G.wolves.length>=3&&D.hp>0){
+  const lineReady=ordered.slice(0,3).every(w=>w.interceptTarget&&dist(w,w.interceptTarget)<=1.15);
   const left=ordered[0]?.interceptTarget,right=ordered[2]?.interceptTarget;
   let nearBarrier=false;
-  if(left&&right){const vx=right.x-left.x,vy=right.y-left.y,l2=vx*vx+vy*vy;const t=l2?Math.max(0,Math.min(1,((D.x-left.x)*vx+(D.y-left.y)*vy)/l2)):0;nearBarrier=Math.hypot(D.x-(left.x+t*vx),D.y-(left.y+t*vy))<=3.2;}
-  if(lineReady&&nearBarrier){G.wolfBiteMode=true;for(const w of G.wolves){w.attackWindup=null;}playSfx('wolf');ringFx(D.x,D.y,'#8eeaff',.9,.35,.1);log('포위 성공! 영혼 늑대들이 B에게 달려들어 물어뜯는다!');}
+  if(left&&right){const vx=right.x-left.x,vy=right.y-left.y,l2=vx*vx+vy*vy;const t=l2?Math.max(0,Math.min(1,((D.x-left.x)*vx+(D.y-left.y)*vy)/l2)):0;nearBarrier=Math.hypot(D.x-(left.x+t*vx),D.y-(left.y+t*vy))<=3.5;}
+  if(lineReady&&nearBarrier){
+   G.wolfPhase='charging';G.wolfBiteMode=true;
+   for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
+   playSfx('wolf');ringFx(D.x,D.y,'#8eeaff',.9,.35,.1);
+   log('포위 성공! 늑대 전원이 한 번씩 물어뜯으러 돌진한다!');
+  }
  }
- // B가 늑대 무리에서 멀리 벗어나면 다시 일렬 차단을 시도한다.
- if(G.wolfBiteMode&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>6)){G.wolfBiteMode=false;for(const w of G.wolves)w.attackWindup=null;log('B가 포위망에서 벗어남 · 늑대들이 다시 차단선을 형성한다');}
+ // 모든 늑대가 한 번씩 공격하고 원래 차단 위치로 복귀하면 포위 대열을 재형성한다.
+ if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>w.biteDone===true&&w.interceptTarget&&dist(w,w.interceptTarget)<=1.15)){
+  G.wolfPhase='forming';G.wolfBiteMode=false;
+  for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
+  log('늑대 전원 공격 완료 · 일렬 포위 대열 재형성');
+ }
+ // B가 멀리 벗어나면 돌진을 중단하고 다시 차단 대열을 만든다.
+ if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>6)){
+  G.wolfPhase='forming';G.wolfBiteMode=false;
+  for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
+  log('B가 포위망에서 벗어남 · 늑대들이 다시 차단선을 형성한다');
+ }
  // 모든 캐릭터와 늑대의 원형 충돌을 해결해 서로 겹치지 않게 한다.
  const bodies=[{o:G,r:.5,type:'general'},{o:D,r:.14,type:'player'},...G.wolves.map(o=>({o,r:.14,type:'wolf'}))];
  for(let pass=0;pass<3;pass++)for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){let A=bodies[i],B=bodies[j];if((A.type==='general'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='general'))continue;let dx=B.o.x-A.o.x,dy=B.o.y-A.o.y,d=Math.hypot(dx,dy),min=A.r+B.r;if(d<min){if(d<.0001){dx=.001;dy=0;d=.001}let push=(min-d)/2,nx=dx/d,ny=dy/d;A.o.x-=nx*push;A.o.y-=ny*push;B.o.x+=nx*push;B.o.y+=ny*push;A.o.x=Math.max(A.r,Math.min(100-A.r,A.o.x));A.o.y=Math.max(A.r,Math.min(100-A.r,A.o.y));B.o.x=Math.max(B.r,Math.min(100-B.r,B.o.x));B.o.y=Math.max(B.r,Math.min(100-B.r,B.o.y));}}
@@ -238,7 +228,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
 }
 let prev=performance.now(),acc=0;function frame(now){acc+=Math.min(.1,(now-prev)/1000);prev=now;const step=1/60;while(acc>=step){update(step);acc-=step}updateUI();draw();requestAnimationFrame(frame)}
 function updateUI(){$('ghp').textContent=G.hp+' / '+G.max;$('ghpbar').style.width=(G.hp/G.max*100)+'%';$('stam').textContent=Math.floor(G.st)+' / 100';$('stambar').style.width=G.st+'%';$('gpos').textContent=G.x.toFixed(1)+', '+G.y.toFixed(1);$('aiState').textContent=G.state;$('dhp').textContent=Math.ceil(D.hp)+' / '+D.max;$('dhpbar').style.width=(D.hp/D.max*100)+'%';$('dpos').textContent=D.x.toFixed(1)+', '+D.y.toFixed(1);$('s1').textContent=dist(G,D)<=2?'공격 범위 내':'사거리 2m';$('s2').textContent=G.chain>0?G.chain.toFixed(1)+'초':'준비 완료';$('s3').textContent=G.wolf>0?G.wolf.toFixed(1)+'초':'준비 완료'}
-function reset(){G.x=20;G.y=50;G.path=null;G.pathTimer=0;G.hp=5000;G.st=100;G.attack=0;G.chain=0;G.wolf=0;G.aura=0;G.slashTimer=0;G.wolves=[];G.wolfBiteMode=false;G.chains=[];G.state='적 탐색';D.x=50;D.y=8;D.hp=D.max;D.pull=null;D.knockback=null;D.respawn=0;logs=[];log('전투 초기화 완료')}
+function reset(){G.x=20;G.y=50;G.path=null;G.pathTimer=0;G.hp=5000;G.st=100;G.attack=0;G.chain=0;G.wolf=0;G.aura=0;G.slashTimer=0;G.wolves=[];G.wolfBiteMode=false;G.wolfPhase='forming';G.chains=[];G.state='적 탐색';D.x=50;D.y=8;D.hp=D.max;D.pull=null;D.knockback=null;D.respawn=0;logs=[];log('전투 초기화 완료')}
 function point(e){let r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
 view.addEventListener('pointerdown',e=>{drag=true;last={x:e.clientX,y:e.clientY};view.setPointerCapture(e.pointerId)});view.addEventListener('pointermove',e=>{if(drag){cam.x+=e.clientX-last.x;cam.y+=e.clientY-last.y;last={x:e.clientX,y:e.clientY};draw()}});view.addEventListener('pointerup',()=>drag=false);view.addEventListener('wheel',e=>{e.preventDefault();let p=point(e),old=cam.z,nz=Math.max(.18,Math.min(3.5,old*(e.deltaY<0?1.12:.89)));cam.x=p.x-(p.x-cam.x)*nz/old;cam.y=p.y-(p.y-cam.y)*nz/old;cam.z=nz;zoomlabel();draw()},{passive:false});
 $('zoomin').onclick=()=>zoom(1.25);$('zoomout').onclick=()=>zoom(.8);function zoom(f){let p={x:canvas.clientWidth/2,y:canvas.clientHeight/2},o=cam.z;cam.z=Math.max(.18,Math.min(3.5,o*f));cam.x=p.x-(p.x-cam.x)*cam.z/o;cam.y=p.y-(p.y-cam.y)*cam.z/o;zoomlabel();draw()}
