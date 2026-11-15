@@ -197,29 +197,28 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
     const wolfGap=dist(a,D);
-  // 추격 중 잠깐 사거리에 들어와도 준비가 취소되지 않도록 공격 준비 범위를 넓힌다.
-  if(wolfGap>3){a.attackWindup=null;}
-  else{
-   if(a.attackWindup===null||a.attackWindup===undefined){
-    if(wolfGap<=2.4){
-     a.attackWindup=.5;
-     log('영혼 늑대 공격 준비 시작');
-    }
-   }else if(a.attackWindup>0){
-    a.attackWindup=Math.max(0,a.attackWindup-dt);
+  // 포위 중 거리가 잠깐 벌어져도 준비 동작을 취소하지 않는다.
+  // 3.2m 안에서 준비를 시작하고, 준비 완료 후 사거리 안에 들어오면 즉시 공격한다.
+  if(a.attackWindup===null||a.attackWindup===undefined){
+   if(wolfGap<=3.2){
+    a.attackWindup=.5;
+    log('영혼 늑대 공격 준비 시작');
    }
-   if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=2.4){
-    damageDummy(10,'영혼 늑대');
-    wolfHitFx(D.x,D.y,a.x,a.y);
-    a.hitLock=.5;
-    a.attackWindup=0;
-    a.attackFlash=.18;
-    D.slowTimer=.1;
-    D.vx=0;D.vy=0;
-    ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
-    burst(D.x,D.y,'#8edcff',16,2.6,2);
-    log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 1초 · 0.1초 동안 이동속도 50% 감소');
-   }
+  }else if(a.attackWindup>0){
+   if(wolfGap>5.5)a.attackWindup=null;
+   else a.attackWindup=Math.max(0,a.attackWindup-dt);
+  }
+  if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=3.2){
+   damageDummy(10,'영혼 늑대');
+   wolfHitFx(D.x,D.y,a.x,a.y);
+   a.hitLock=.5;
+   a.attackWindup=null;
+   a.attackFlash=.18;
+   D.slowTimer=.1;
+   D.vx=0;D.vy=0;
+   ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
+   burst(D.x,D.y,'#8edcff',16,2.6,2);
+   log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.5초 · 0.1초 동안 이동속도 50% 감소');
   }
  }
  // 모든 캐릭터와 늑대의 원형 충돌을 해결해 서로 겹치지 않게 한다.
