@@ -161,13 +161,23 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const playerSpeed=Math.hypot(D.vx||0,D.vy||0);
    const travelDir=playerSpeed>.1?norm(D.vx,D.vy):norm(G.x-D.x,G.y-D.y);
    const travelAngle=Math.atan2(travelDir.y,travelDir.x);
-   const leadDistance=Math.min(8,playerSpeed*.45);
+   const leadDistance=Math.min(10,playerSpeed*.6);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
-   // 삼각 포위 진형: 선두 늑대는 진행 경로를 막고, 양측 늑대는 좌우에서 협공한다.
-   const encirclementAngles=[0,2.18,-2.18];
-   const slotAngle=travelAngle+(encirclementAngles[a.slot??i]??0);
-   const ringRadius=1.65;
-   const interceptTarget={x:Math.max(.5,Math.min(99.5,predicted.x+Math.cos(slotAngle)*ringRadius)),y:Math.max(.5,Math.min(99.5,predicted.y+Math.sin(slotAngle)*ringRadius))};
+   // 다중 차단 전술: 선두 늑대는 먼 길목을 선점하고, 나머지 둘은 좌우 우회로를 막아 가로막는 장벽을 만든다.
+   const forward={x:Math.cos(travelAngle),y:Math.sin(travelAngle)};
+   const lateral={x:-forward.y,y:forward.x};
+   const slot=a.slot??i;
+   const blockadeOffsets=[
+    {forward:5.2,lateral:0},
+    {forward:1.2,lateral:-3.2},
+    {forward:1.2,lateral:3.2}
+   ];
+   const offset=blockadeOffsets[slot]??blockadeOffsets[0];
+   let targetX=predicted.x+forward.x*offset.forward+lateral.x*offset.lateral;
+   let targetY=predicted.y+forward.y*offset.forward+lateral.y*offset.lateral;
+   targetX=Math.max(1.2,Math.min(98.8,targetX));
+   targetY=Math.max(1.2,Math.min(98.8,targetY));
+   const interceptTarget={x:targetX,y:targetY};
    a.dashCooldown=(a.dashCooldown??3)-dt;
    if(a.dashCooldown<=0&&!(a.dashTimer>0)){
     a.dashCooldown=3;
