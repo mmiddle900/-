@@ -197,16 +197,20 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
     const wolfGap=dist(a,D);
-  // 포위 중 거리가 잠깐 벌어져도 준비 동작을 취소하지 않는다.
-  // 3.2m 안에서 준비를 시작하고, 준비 완료 후 사거리 안에 들어오면 즉시 공격한다.
+  // 포위 위치에 도착한 늑대는 대상에게 직접 접근해 공격 사거리를 확보한다.
+  if(wolfGap<8){
+   const chaseDir=norm(D.x-a.x,D.y-a.y);
+   interceptTarget.x=D.x-chaseDir.x*.42;
+   interceptTarget.y=D.y-chaseDir.y*.42;
+  }
+  // 공격 준비가 시작되면 거리가 잠깐 벌어져도 취소하지 않고, 사거리 복귀 시 타격한다.
   if(a.attackWindup===null||a.attackWindup===undefined){
    if(wolfGap<=3.2){
     a.attackWindup=.5;
     log('영혼 늑대 공격 준비 시작');
    }
   }else if(a.attackWindup>0){
-   if(wolfGap>5.5)a.attackWindup=null;
-   else a.attackWindup=Math.max(0,a.attackWindup-dt);
+   a.attackWindup=Math.max(0,a.attackWindup-dt);
   }
   if(a.attackWindup===0&&a.hitLock<=0&&wolfGap<=3.2){
    damageDummy(10,'영혼 늑대');
