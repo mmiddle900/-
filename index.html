@@ -193,7 +193,6 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
     damageDummy(50,'영혼 늑대');wolfHitFx(D.x,D.y,a.x,a.y);
     a.biteDone=true;a.hitLock=1.5;a.attackWindup=null;a.attackFlash=.18;a.returning=true;
     a.attackCooldown=1.5;
-    D.slowTimer=.1;D.vx=0;D.vy=0;
     ringFx(D.x,D.y,'#8edcff',.3,.2,.07);burst(D.x,D.y,'#8edcff',8,1.2,1.1);
     log('영혼 늑대 물어뜯기 성공 · 50 피해 · 1회 공격 후 복귀');
     }
@@ -225,7 +224,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
  }
  // 모든 캐릭터와 늑대의 원형 충돌을 해결해 서로 겹치지 않게 한다.
  const bodies=[{o:G,r:.5,type:'general'},{o:D,r:.14,type:'player'},...G.wolves.map(o=>({o,r:.14,type:'wolf'}))];
- for(let pass=0;pass<3;pass++)for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){let A=bodies[i],B=bodies[j];if((A.type==='general'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='general'))continue;let dx=B.o.x-A.o.x,dy=B.o.y-A.o.y,d=Math.hypot(dx,dy),min=A.r+B.r;if(d<min){if(d<.0001){dx=.001;dy=0;d=.001}let push=(min-d)/2,nx=dx/d,ny=dy/d;A.o.x-=nx*push;A.o.y-=ny*push;B.o.x+=nx*push;B.o.y+=ny*push;A.o.x=Math.max(A.r,Math.min(100-A.r,A.o.x));A.o.y=Math.max(A.r,Math.min(100-A.r,A.o.y));B.o.x=Math.max(B.r,Math.min(100-B.r,B.o.x));B.o.y=Math.max(B.r,Math.min(100-B.r,B.o.y));}}
+ for(let pass=0;pass<3;pass++)for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){let A=bodies[i],B=bodies[j];if((A.type==='general'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='general')||(A.type==='player'&&B.type==='wolf')||(A.type==='wolf'&&B.type==='player'))continue;let dx=B.o.x-A.o.x,dy=B.o.y-A.o.y,d=Math.hypot(dx,dy),min=A.r+B.r;if(d<min){if(d<.0001){dx=.001;dy=0;d=.001}let push=(min-d)/2,nx=dx/d,ny=dy/d;A.o.x-=nx*push;A.o.y-=ny*push;B.o.x+=nx*push;B.o.y+=ny*push;A.o.x=Math.max(A.r,Math.min(100-A.r,A.o.x));A.o.y=Math.max(A.r,Math.min(100-A.r,A.o.y));B.o.x=Math.max(B.r,Math.min(100-B.r,B.o.x));B.o.y=Math.max(B.r,Math.min(100-B.r,B.o.y));}}
  // 사슬은 발사 시점의 방향과 위치를 사용하고, 0.25초 뒤 판정한다.
  for(let i=G.chains.length-1;i>=0;i--){let c=G.chains[i];c.timer-=dt;c.life-=dt;if(c.timer<=0&&!c.hit){c.hit=true;if(D.hp>0&&lineHitsTarget(c.x,c.y,c.tx,c.ty,D,.75)){playSfx('chain');log('영혼 사슬 명중 · 적을 끌어오는 중');D.pull={fromX:D.x,fromY:D.y,elapsed:0,duration:.32}}else log('영혼 사슬 빗나감')}if(c.life<=0)G.chains.splice(i,1)}
 }
