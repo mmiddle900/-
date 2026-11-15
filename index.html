@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>100×100 전장</title>
+<style>
+:root{color-scheme:dark;--bg:#101713;--panel:#19231d;--line:#34453a;--text:#e8f0e9;--muted:#a7b7aa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+main{max-width:1400px;margin:auto;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:16px}
+.map-panel,.side-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.toolbar{padding:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+button{background:#29382e;color:var(--text);border:1px solid #526658;border-radius:7px;padding:8px 12px;cursor:pointer;font-weight:600}
+button:hover{background:#35483b}button:focus-visible{outline:2px solid #a9d8ae;outline-offset:2px}
+#zoom-label{color:var(--muted);font-size:13px;margin-left:auto}
+#viewport{height:min(72vh,760px);min-height:420px;position:relative;overflow:hidden;background:#17241b;cursor:grab;touch-action:none}
+#viewport.dragging{cursor:grabbing}canvas{display:block;width:100%;height:100%}
+.hint{padding:9px 12px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+.side-panel{padding:16px;height:max-content}.side-panel h2{font-size:16px;margin:0 0 14px}
+.stat{padding:11px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;font-size:13px}.stat span{color:var(--muted)}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px;font-size:12px;color:var(--muted)}
+.legend-item{display:flex;align-items:center;gap:7px}.swatch{width:14px;height:14px;border-radius:3px;border:1px solid #ffffff33}
+.note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:18px}
+@media(max-width:850px){main{grid-template-columns:1fr}.side-panel{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}.side-panel h2,.legend,.note{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header><div><h1>100×100 전장</h1><p>새 게임 프로젝트 · 전장 프로토타입 v0.1.0</p></div><div style="font-size:12px;color:var(--muted)">맵 크기 100 × 100 · 총 10,000 타일</div></header>
+<main>
+<section class="map-panel">
+ <div class="toolbar">
+  <button id="zoom-out" aria-label="축소">−</button><button id="zoom-in" aria-label="확대">＋</button>
+  <button id="reset">전체 맵 보기</button><button id="grid-toggle">격자 끄기</button>
+  <span id="zoom-label">확대 100%</span>
+ </div>
+ <div id="viewport"><canvas id="map" aria-label="100 곱하기 100 타일 전장 지도"></canvas></div>
+ <div class="hint">마우스 드래그: 전장 이동 · 휠: 확대/축소 · 타일 클릭: 좌표 선택</div>
+</section>
+<aside class="side-panel">
+ <h2>전장 정보</h2>
+ <div class="stat"><span>전장 크기</span><strong>100 × 100</strong></div>
+ <div class="stat"><span>전체 타일</span><strong>10,000</strong></div>
+ <div class="stat"><span>선택 좌표</span><strong id="coord">없음</strong></div>
+ <div class="stat"><span>지형</span><strong id="terrain">없음</strong></div>
+ <div class="legend">
+  <div class="legend-item"><i class="swatch" style="background:#668b4e"></i>평지</div>
+  <div class="legend-item"><i class="swatch" style="background:#a18a5d"></i>흙길</div>
+  <div class="legend-item"><i class="swatch" style="background:#477c91"></i>물</div>
+  <div class="legend-item"><i class="swatch" style="background:#315b3d"></i>숲</div>
+  <div class="legend-item"><i class="swatch" style="background:#777b7d"></i>바위</div>
+ </div>
+ <p class="note">현재는 전장 지형과 카메라 조작을 구현한 기본 맵입니다. 유닛 배치, 이동, 공격 및 승리 조건은 다음 개발 단계에서 추가할 수 있습니다.</p>
+</aside>
+</main>
+<script>
+(() => {
+ const SIZE=100, CELL=24, WORLD=SIZE*CELL;
+ const canvas=document.getElementById('map'), ctx=canvas.getContext('2d'), view=document.getElementById('viewport');
+ const colors={plain:'#668b4e', dirt:'#a18a5d', water:'#477c91', forest:'#315b3d', rock:'#777b7d'};
+ const names={plain:'평지',dirt:'흙길',water:'물',forest:'숲',rock:'바위'};
+ const terrain=Array.from({length:SIZE},(_,y)=>Array.from({length:SIZE},(_,x)=>makeTerrain(x,y)));
+ let camera={x:0,y:0,scale:1}, selected=null, showGrid=true, dragging=false, last=null, dpr=1;
+ function hash(x,y){let n=(x*374761393+y*668265263)>>>0;n=(n^(n>>>13))*1274126177>>>0;return (n^(n>>>16))>>>0}
+ function rand(x,y){return hash(x,y)/4294967295}
+ function makeTerrain(x,y){
+  const r=rand(x,y), broad=rand(Math.floor(x/7),Math.floor(y/7));
+  if((x>40&&x<59&&y>44&&y<55)||r<.055&&broad<.42)return 'water';
+  if(broad>.82&&r<.82)return 'forest';
+  if(broad<.13&&r<.65)return 'rock';
+  if((x%23<2&&y%19<13)||r<.12)return 'dirt';
+  return 'plain';
+ }
+ function resize(){const rect=view.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);draw()}
+ function fit(){const w=canvas.width/dpr,h=canvas.height/dpr;camera.scale=Math.min(w/WORLD,h/WORLD);camera.x=(w-WORLD*camera.scale)/2;camera.y=(h-WORLD*camera.scale)/2;updateZoom();draw()}
+ function updateZoom(){document.getElementById('zoom-label').textContent='확대 '+Math.round(camera.scale*100)+'%'}
+ function draw(){
+  if(!canvas.width)return;const w=canvas.width/dpr,h=canvas.height/dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);ctx.fillStyle='#17241b';ctx.fillRect(0,0,w,h);
+  const s=CELL*camera.scale, left=Math.max(0,Math.floor(-camera.x/s)),top=Math.max(0,Math.floor(-camera.y/s)),right=Math.min(SIZE,Math.ceil((w-camera.x)/s)),bottom=Math.min(SIZE,Math.ceil((h-camera.y)/s));
+  for(let y=top;y<bottom;y++)for(let x=left;x<right;x++){ctx.fillStyle=colors[terrain[y][x]];ctx.fillRect(camera.x+x*s,camera.y+y*s,s+.3,s+.3)}
+  if(showGrid&&s>=5){ctx.beginPath();ctx.strokeStyle='rgba(15,25,17,.32)';ctx.lineWidth=1;for(let i=0;i<=SIZE;i++){let px=camera.x+i*s,py=camera.y+i*s;ctx.moveTo(px,camera.y);ctx.lineTo(px,camera.y+WORLD*camera.scale);ctx.moveTo(camera.x,py);ctx.lineTo(camera.x+WORLD*camera.scale,py)}ctx.stroke()}
+  ctx.strokeStyle='#d9e7d5';ctx.lineWidth=2;ctx.strokeRect(camera.x,camera.y,WORLD*camera.scale,WORLD*camera.scale);
+  if(selected){ctx.strokeStyle='#fff4a8';ctx.lineWidth=3;ctx.strokeRect(camera.x+selected.x*s+1,camera.y+selected.y*s+1,s-2,s-2)}
+ }
+ function zoom(factor,px,py){const old=camera.scale,next=Math.max(.18,Math.min(3.5,old*factor));const cx=px??(canvas.clientWidth/2),cy=py??(canvas.clientHeight/2);camera.x=cx-(cx-camera.x)*(next/old);camera.y=cy-(cy-camera.y)*(next/old);camera.scale=next;updateZoom();draw()}
+ function pointer(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}}
+ view.addEventListener('pointerdown',e=>{dragging=true;last={x:e.clientX,y:e.clientY};view.classList.add('dragging');view.setPointerCapture(e.pointerId)});
+ view.addEventListener('pointermove',e=>{if(!dragging)return;camera.x+=e.clientX-last.x;camera.y+=e.clientY-last.y;last={x:e.clientX,y:e.clientY};draw()});
+ view.addEventListener('pointerup',e=>{if(!dragging)return;const moved=Math.hypot(e.clientX-last.x,e.clientY-last.y);dragging=false;view.classList.remove('dragging');const p=pointer(e),s=CELL*camera.scale,x=Math.floor((p.x-camera.x)/s),y=Math.floor((p.y-camera.y)/s);if(x>=0&&x<SIZE&&y>=0&&y<SIZE){selected={x,y};document.getElementById('coord').textContent=x+', '+y;document.getElementById('terrain').textContent=names[terrain[y][x]];draw()}});
+ view.addEventListener('wheel',e=>{e.preventDefault();const p=pointer(e);zoom(e.deltaY<0?1.12:.89,p.x,p.y)},{passive:false});
+ document.getElementById('zoom-in').onclick=()=>zoom(1.25);document.getElementById('zoom-out').onclick=()=>zoom(.8);
+ document.getElementById('reset').onclick=fit;
+ document.getElementById('grid-toggle').onclick=e=>{showGrid=!showGrid;e.target.textContent=showGrid?'격자 끄기':'격자 켜기';draw()};
+ new ResizeObserver(resize).observe(view);resize();fit();
+})();
+</script>
+</body>
+</html>
