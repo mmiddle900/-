@@ -211,11 +211,11 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
      a.hitLock=.05;
      a.attackWindup=null;
      a.attackFlash=.18;
-     D.stunTimer=.5;
+     D.stunTimer=.1;
      D.vx=0;D.vy=0;
      ringFx(D.x,D.y,'#8edcff',.8,.35,.12);
      burst(D.x,D.y,'#8edcff',16,2.6,2);
-     log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.05초 · 0.5초 기절');
+     log('영혼 늑대 공격 성공 · 10 피해 · 공격 간격 0.05초 · 0.1초 이동 불가');
     }
    }
   }
