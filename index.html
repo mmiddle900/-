@@ -55,7 +55,7 @@ function update(dt){
  else {let dx=(keys.d?1:0)-(keys.a?1:0),dy=(keys.s?1:0)-(keys.w?1:0);if(dx||dy){let v=norm(dx,dy),run=keys.shift&&G.st>0,speed=run?6:3;if(run)G.st=Math.max(0,G.st-dt*4);G.x+=v.x*speed*dt;G.y+=v.y*speed*dt}}
  G.x=Math.max(1,Math.min(99,G.x));G.y=Math.max(1,Math.min(99,G.y));
  // zero-cooldown soul slash within 2m
- if(dist(G,D)<=2&&G.attack<=0){damageDummy(100,'영혼 베기');G.attack=.65}
+ if(dist(G,D)<=2){damageDummy(100,'영혼 베기')}
  G.attack=Math.max(0,G.attack-dt);
  // aura: 100 damage every 0.5 sec within 3m
  G.aura+=dt;if(G.aura>=.5){G.aura-=.5;if(dist(G,D)<=3)damageDummy(100,'영혼 절멸자')}
