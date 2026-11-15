@@ -165,12 +165,16 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
    // 늑대 수가 많을수록 원형 포위 반경을 넓히고, 각 늑대가 균등한 각도로 자리를 잡는다.
    const wolfCount=Math.max(1,G.wolves.length);
-   const encircleRadius=Math.min(8,2.2+Math.sqrt(wolfCount)*.55);
-   const slot=a.slot??i;
+   const encircleRadius=Math.min(10,4.2+Math.sqrt(wolfCount)*.65);
+   // 원의 중심을 먼저 경기장 안쪽으로 이동시켜 가장자리에서 포위 간격이 찌그러지지 않게 한다.
+   const center={x:Math.max(encircleRadius+1,Math.min(99-encircleRadius,predicted.x)),y:Math.max(encircleRadius+1,Math.min(99-encircleRadius,predicted.y))};
+   // 현재 살아있는 늑대의 슬롯을 0..N-1로 재배열해 360도를 같은 간격으로 나눈다.
+   const orderedWolves=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
+   const slot=Math.max(0,orderedWolves.indexOf(a));
    const encircleAngle=(Math.PI*2*slot/wolfCount)-Math.PI/2;
    const interceptTarget={
-    x:Math.max(1.2,Math.min(98.8,predicted.x+Math.cos(encircleAngle)*encircleRadius)),
-    y:Math.max(1.2,Math.min(98.8,predicted.y+Math.sin(encircleAngle)*encircleRadius))
+    x:center.x+Math.cos(encircleAngle)*encircleRadius,
+    y:center.y+Math.sin(encircleAngle)*encircleRadius
    };
    a.dashCooldown=(a.dashCooldown??3)-dt;
    if(a.dashCooldown<=0&&!(a.dashTimer>0)){
