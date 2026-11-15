@@ -109,7 +109,8 @@ function update(dt){updatePlayerB(dt);
   const before=dist(a,D);
   if(before>.55)moveToward(a,D,8,dt);
   const touched=dist(a,D)<=.65;
-  if(touched&&a.hitLock<=0){
+  // 제너럴 K의 공격 범위 안에서는 늑대가 다시 밀쳐내기를 시작하지 않는다.
+  if(touched&&a.hitLock<=0&&dist(G,D)>2){
    damageDummy(50,'영혼 늑대');
    a.hitLock=.6;
    a.attackFlash=.18;
