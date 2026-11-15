@@ -95,9 +95,9 @@ function draw(){
  if(whiteout>0){ctx.save();ctx.globalAlpha=Math.min(1,whiteout*2.5);ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.restore()}
  for(const st of skillTexts){const p=worldToScreen(st.x,st.y);ctx.save();ctx.globalAlpha=Math.min(1,st.life/.25);ctx.textAlign='center';ctx.font='bold 16px sans-serif';ctx.fillStyle=st.color;ctx.shadowColor=st.color;ctx.shadowBlur=18;ctx.fillText(st.text,p.x,p.y-35);ctx.restore()}
  // wolves
- if(G.active&&D.active)for(const a of G.wolves){let p=worldToScreen(a.x,a.y),target=worldToScreen(D.x,D.y),ang=Math.atan2(target.y-p.y,target.x-p.x),r=Math.max(3,.14*s);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(ang);ctx.shadowColor='#39aaff';ctx.shadowBlur=22;ctx.fillStyle='#1265c7';ctx.strokeStyle='#8bdcff';ctx.lineWidth=Math.max(1,s*.025);ctx.beginPath();ctx.moveTo(r*1.8,0);ctx.lineTo(r*.25,-r*.8);ctx.lineTo(-r*1.1,-r*.55);ctx.lineTo(-r*1.45,0);ctx.lineTo(-r*1.1,r*.55);ctx.lineTo(r*.25,r*.8);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#dffaff';ctx.shadowColor='#8ffaff';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(r*.8,-r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(r*.8,r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#e7f5ff';ctx.font='10px sans-serif';ctx.fillText('늑대 '+Math.ceil(a.hp),p.x-17,p.y-12)}
+ if(G.active)for(const a of G.wolves){let p=worldToScreen(a.x,a.y),target=worldToScreen(D.x,D.y),ang=Math.atan2(target.y-p.y,target.x-p.x),r=Math.max(3,.14*s);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(ang);ctx.shadowColor='#39aaff';ctx.shadowBlur=22;ctx.fillStyle='#1265c7';ctx.strokeStyle='#8bdcff';ctx.lineWidth=Math.max(1,s*.025);ctx.beginPath();ctx.moveTo(r*1.8,0);ctx.lineTo(r*.25,-r*.8);ctx.lineTo(-r*1.1,-r*.55);ctx.lineTo(-r*1.45,0);ctx.lineTo(-r*1.1,r*.55);ctx.lineTo(r*.25,r*.8);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='#dffaff';ctx.shadowColor='#8ffaff';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(r*.8,-r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(r*.8,r*.22,Math.max(1,r*.13),0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle='#e7f5ff';ctx.font='10px sans-serif';ctx.fillText('늑대 '+Math.ceil(a.hp),p.x-17,p.y-12)}
  // chain beams
- if(G.active&&D.active)for(const c of G.chains){let a=worldToScreen(c.x,c.y),b=worldToScreen(c.tx,c.ty);ctx.save();ctx.lineCap='round';ctx.strokeStyle='#168cff';ctx.lineWidth=Math.max(3,.34*s);ctx.shadowColor='#168cff';ctx.shadowBlur=22;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.strokeStyle='#b9f4ff';ctx.lineWidth=Math.max(1,.09*s);ctx.setLineDash([Math.max(3,.28*s),Math.max(2,.16*s)]);ctx.lineDashOffset=-(performance.now()*.035)%30;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);for(let j=0;j<7;j++){let t=((performance.now()*.0018+j/7)%1),x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;ctx.fillStyle='#e8fcff';ctx.beginPath();ctx.arc(x,y,Math.max(1,s*.055),0,Math.PI*2);ctx.fill()}ctx.restore()}
+ if(G.active)for(const c of G.chains){let a=worldToScreen(c.x,c.y),b=worldToScreen(c.tx,c.ty);ctx.save();ctx.lineCap='round';ctx.strokeStyle='#168cff';ctx.lineWidth=Math.max(3,.34*s);ctx.shadowColor='#168cff';ctx.shadowBlur=22;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.strokeStyle='#b9f4ff';ctx.lineWidth=Math.max(1,.09*s);ctx.setLineDash([Math.max(3,.28*s),Math.max(2,.16*s)]);ctx.lineDashOffset=-(performance.now()*.035)%30;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);for(let j=0;j<7;j++){let t=((performance.now()*.0018+j/7)%1),x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;ctx.fillStyle='#e8fcff';ctx.beginPath();ctx.arc(x,y,Math.max(1,s*.055),0,Math.PI*2);ctx.fill()}ctx.restore()}
  // aura
  let gp=worldToScreen(G.x,G.y);if(G.active){ctx.save();ctx.strokeStyle='#5cbaff55';ctx.lineWidth=2;ctx.setLineDash([5,5]);ctx.beginPath();ctx.arc(gp.x,gp.y,3*s,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);ctx.strokeStyle='#51baff55';ctx.lineWidth=Math.max(1,s*.035);ctx.beginPath();ctx.arc(gp.x,gp.y,(.72+Math.sin(performance.now()*.004)*.08)*s,0,Math.PI*2);ctx.stroke();ctx.restore();}
  // dummy
@@ -170,7 +170,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
  }
  // 영혼 늑대: B의 예상 진행 경로 앞에 일렬로 늘어서 이동을 차단한다.
   for(let i=G.wolves.length-1;i>=0;i--){
-   const a=G.wolves[i];if(!G.active||!D.active)continue;
+   const a=G.wolves[i];if(!G.active||!D.active||(F.active&&F.hp>0&&dist(G,F)<dist(G,D)))continue;
    a.hitLock=Math.max(0,(a.hitLock||0)-dt);
    if(D.hp<=0)continue;
    const playerSpeed=Math.hypot(D.vx||0,D.vy||0);
@@ -215,7 +215,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
  // 포위 대열이 완성되면 전 늑대가 한 번씩 돌진해 물어뜯는다.
  const ordered=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
  G.wolfCycleCooldown=Math.max(0,(G.wolfCycleCooldown||0)-dt);
- if(G.wolfPhase!=='charging'&&G.wolves.length>=3&&D.hp>0&&G.wolfCycleCooldown<=0){
+ if(!(F.active&&F.hp>0&&dist(G,F)<dist(G,D))&&G.wolfPhase!=='charging'&&G.wolves.length>=3&&D.hp>0&&G.wolfCycleCooldown<=0){
   const lineReady=ordered.slice(0,3).every(w=>w.interceptTarget&&dist(w,w.interceptTarget)<=1.8);
   if(lineReady){
    G.wolfPhase='charging';G.wolfBiteMode=true;
@@ -225,13 +225,13 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
   }
  }
  // 모든 늑대가 한 번씩 공격하고 원래 차단 위치로 복귀하면 포위 대열을 재형성한다.
- if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>w.biteDone===true&&w.interceptTarget&&dist(w,w.interceptTarget)<=1.15)){
+ if(!(F.active&&F.hp>0&&dist(G,F)<dist(G,D))&&G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>w.biteDone===true&&w.interceptTarget&&dist(w,w.interceptTarget)<=1.15)){
   G.wolfPhase='forming';G.wolfBiteMode=false;G.wolfCycleCooldown=1.5;
   for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
   log('늑대 전원 공격 완료 · 일렬 포위 대열 재형성 · 다음 공격까지 1.5초');
  }
  // B가 멀리 벗어나면 돌진을 중단하고 다시 차단 대열을 만든다.
- if(G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>12)){
+ if(!(F.active&&F.hp>0&&dist(G,F)<dist(G,D))&&G.wolfPhase==='charging'&&G.wolves.length&&G.wolves.every(w=>dist(w,D)>12)){
   G.wolfPhase='forming';G.wolfBiteMode=false;
   for(const w of G.wolves){w.biteDone=false;w.returning=false;w.attackWindup=null;}
   log('B가 포위망에서 벗어남 · 늑대들이 다시 차단선을 형성한다');
