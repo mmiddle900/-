@@ -163,9 +163,11 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const travelAngle=Math.atan2(travelDir.y,travelDir.x);
    const leadDistance=Math.min(8,playerSpeed*.45);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
-   // 세 마리가 진행 방향 앞에서 좌·중·우 차단선을 형성한다.
-   const slotAngle=travelAngle+((a.slot??i)-1)*Math.PI/3;
-   const interceptTarget={x:Math.max(.5,Math.min(99.5,predicted.x+Math.cos(slotAngle)*.8)),y:Math.max(.5,Math.min(99.5,predicted.y+Math.sin(slotAngle)*.8))};
+   // 삼각 포위 진형: 선두 늑대는 진행 경로를 막고, 양측 늑대는 좌우에서 협공한다.
+   const encirclementAngles=[0,2.18,-2.18];
+   const slotAngle=travelAngle+(encirclementAngles[a.slot??i]??0);
+   const ringRadius=1.65;
+   const interceptTarget={x:Math.max(.5,Math.min(99.5,predicted.x+Math.cos(slotAngle)*ringRadius)),y:Math.max(.5,Math.min(99.5,predicted.y+Math.sin(slotAngle)*ringRadius))};
    a.dashCooldown=(a.dashCooldown??3)-dt;
    if(a.dashCooldown<=0&&!(a.dashTimer>0)){
     a.dashCooldown=3;
@@ -175,7 +177,7 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    }
    const dashing=a.dashTimer>0;
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
-   if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?10:8,dt);
+   if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
     const touched=dist(a,D)<=.65;
   // 늑대가 공격 범위에 들어온 뒤 2초간 공격을 준비한다.
   if(!touched||dist(G,D)<=2){a.attackWindup=null;}
