@@ -427,6 +427,17 @@ const updateWithUniversal=update;update=function(dt){updateWithUniversal(dt);upd
  // 영혼 베기·영혼 사슬·늑대·도약·영혼 절멸자가 정상 실행되게 한다.
 const updateWithAllies=update;
 update=function(dt){updateWithAllies(dt)};
+// 모든 이동 처리(일반 이동·도약/돌진·넉백·소환수 대시) 이후에 최종 벽 충돌을 적용한다.
+// 개별 AI 루프가 기존 벽 충돌 래퍼 바깥에서 실행되더라도 벽을 통과하지 못하게 한다.
+const updateWithFinalDashWallCollision=update;
+update=function(dt){
+ const before=new Map(),capture=e=>{if(e&&Number.isFinite(e.x)&&Number.isFinite(e.y))before.set(e,{x:e.x,y:e.y})};
+ capture(G);capture(D);capture(F);for(const w of G.wolves)capture(w);for(const e of extraCombatants)capture(e);
+ updateWithFinalDashWallCollision(dt);
+ const resolve=(e,r)=>{if(!e||!Number.isFinite(e.x)||!Number.isFinite(e.y))return;const old=before.get(e)||{x:e.x,y:e.y};const p=slideAlongWalls(old,{x:e.x,y:e.y},r);e.x=p.x;e.y=p.y};
+ if(G.active)resolve(G,.46);if(D.active)resolve(D,.13);if(F.active)resolve(F,.32);
+ for(const w of G.wolves)resolve(w,.13);for(const e of extraCombatants)if(e.active)resolve(e,e.radius||.3);
+};
 // draw 예외를 숨기지 않고 원래 전투 렌더러를 그대로 실행한다.
 new ResizeObserver(resize).observe(view);
 try{resize()}catch(e){canvas.width=Math.max(1,view.clientWidth);canvas.height=Math.max(1,view.clientHeight);dpr=1}
