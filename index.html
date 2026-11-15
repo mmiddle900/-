@@ -163,18 +163,18 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    const travelDir=playerSpeed>.1?norm(D.vx,D.vy):norm(G.x-D.x,G.y-D.y);
    const leadDistance=Math.min(10,playerSpeed*.6);
    const predicted={x:Math.max(1,Math.min(99,D.x+travelDir.x*leadDistance)),y:Math.max(1,Math.min(99,D.y+travelDir.y*leadDistance))};
-   // 늑대 수가 많을수록 원형 포위 반경을 넓히고, 각 늑대가 균등한 각도로 자리를 잡는다.
+   // 늑대는 원형으로 B를 둘러싸지 않고, 제너럴 K와 B 사이의 공격선을 비워 둔 채 B의 앞쪽을 가로막는다.
    const wolfCount=Math.max(1,G.wolves.length);
-   const encircleRadius=Math.min(10,4.2+Math.sqrt(wolfCount)*.65);
-   // 원의 중심을 먼저 경기장 안쪽으로 이동시켜 가장자리에서 포위 간격이 찌그러지지 않게 한다.
-   const center={x:Math.max(encircleRadius+1,Math.min(99-encircleRadius,predicted.x)),y:Math.max(encircleRadius+1,Math.min(99-encircleRadius,predicted.y))};
-   // 현재 살아있는 늑대의 슬롯을 0..N-1로 재배열해 360도를 같은 간격으로 나눈다.
+   const towardPlayer=norm(D.x-G.x,D.y-G.y);
+   const lateral={x:-towardPlayer.y,y:towardPlayer.x};
    const orderedWolves=[...G.wolves].sort((u,v)=>(u.slot??0)-(v.slot??0));
    const slot=Math.max(0,orderedWolves.indexOf(a));
-   const encircleAngle=(Math.PI*2*slot/wolfCount)-Math.PI/2;
+   const spacing=1.25;
+   const lateralOffset=(slot-(wolfCount-1)/2)*spacing;
+   const barrierDistance=1.35;
    const interceptTarget={
-    x:center.x+Math.cos(encircleAngle)*encircleRadius,
-    y:center.y+Math.sin(encircleAngle)*encircleRadius
+    x:Math.max(1.2,Math.min(98.8,predicted.x+towardPlayer.x*barrierDistance+lateral.x*lateralOffset)),
+    y:Math.max(1.2,Math.min(98.8,predicted.y+towardPlayer.y*barrierDistance+lateral.y*lateralOffset))
    };
    a.dashCooldown=(a.dashCooldown??3)-dt;
    if(a.dashCooldown<=0&&!(a.dashTimer>0)){
@@ -187,8 +187,8 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(dashing)a.dashTimer=Math.max(0,a.dashTimer-dt);
    if(dist(a,interceptTarget)>.035)moveToward(a,interceptTarget,dashing?15:10,dt);
    const wolfGap=dist(a,D);
-  // 늑대 수에 비례해 넓어진 포위 반경에서도 공격할 수 있도록 타격 범위를 함께 조정한다.
-  const wolfAttackRange=Math.max(3.2,encircleRadius+.45);
+  // 늑대 공격은 근접했을 때만 적중하도록 범위를 축소한다.
+  const wolfAttackRange=1.6;
   // 공격 준비가 시작되면 거리가 잠깐 벌어져도 취소하지 않고, 사거리 복귀 시 타격한다.
   if(a.attackWindup===null||a.attackWindup===undefined){
    if(wolfGap<=wolfAttackRange){
