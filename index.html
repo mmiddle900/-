@@ -99,7 +99,7 @@ function draw(){
 function damageDummy(n,source){if(D.hp<=0)return;if(source==='영혼 베기'){playSfx('slash');slashFx(D.x,D.y)}if(source==='영혼 늑대'){playSfx('wolf');burst(D.x,D.y,'#56baff',22,3.5,2.8);ringFx(D.x,D.y,'#9ceaff',.9,.3,.1)}if(source==='영혼 절멸자'){playSfx('annihilator');ringFx(G.x,G.y,'#55caff',3,.55,.18);burst(D.x,D.y,'#9ceaff',30,5,3)}D.hp=Math.max(0,D.hp-n);D.flash=.12;log(source+' 적중! B에게 '+n+' 피해');if(D.hp<=0){D.respawn=3;D.pull=null;D.knockback=null;log('B 전투 불능! 3초 후 북부에서 재생성')}}
 function lineHitsTarget(x1,y1,x2,y2,target,radius){let vx=x2-x1,vy=y2-y1,l2=vx*vx+vy*vy;if(!l2)return false;let t=Math.max(0,Math.min(1,((target.x-x1)*vx+(target.y-y1)*vy)/l2));let px=x1+t*vx,py=y1+t*vy;return Math.hypot(target.x-px,target.y-py)<=radius}
 function chainCast(){if(G.chain>0||D.hp<=0||D.pull)return;playSfx('chain');ringFx(G.x,G.y,'#46baff',1.1,.38,.14);burst(G.x,G.y,'#8eeaff',16,2.5,2);G.chain=5;const lead=.25;let target={x:Math.max(.5,Math.min(99.5,D.x+D.vx*lead)),y:Math.max(.5,Math.min(99.5,D.y+D.vy*lead))};let dir=norm(target.x-G.x,target.y-G.y);let cast={x:G.x,y:G.y,tx:G.x+dir.x*30,ty:G.y+dir.y*30,timer:.25,life:.5,hit:false,target};G.chains.push(cast);G.state='이동 예측 영혼 사슬';log('AI 판단: B의 이동 방향을 예측해 영혼 사슬 발사')}
-function wolvesCast(){if(G.wolf>0)return;playSfx('summon');ringFx(G.x,G.y,'#398fff',2,.7,.16);burst(G.x,G.y,'#60bfff',34,4,3);G.wolf=20;let dir=norm(D.x-G.x,D.y-G.y),back={x:-dir.x,y:-dir.y};for(let i=0;i<3;i++){G.wolves.push({x:Math.max(1,Math.min(99,G.x+back.x*5+dir.y*(i-1)*.8)),y:Math.max(1,Math.min(99,G.y+back.y*5-dir.x*(i-1)*.8)),hp:1000,hitLock:0,attackWindup:null})}log('AI 판단: 영혼 늑대 3마리 소환')}
+function wolvesCast(){if(G.wolf>0)return;playSfx('summon');ringFx(G.x,G.y,'#398fff',2,.7,.16);burst(G.x,G.y,'#60bfff',34,4,3);G.wolf=20;let dir=norm(D.x-G.x,D.y-G.y),back={x:-dir.x,y:-dir.y};for(let i=0;i<3;i++){G.wolves.push({x:Math.max(1,Math.min(99,G.x+back.x*5+dir.y*(i-1)*.8)),y:Math.max(1,Math.min(99,G.y+back.y*5-dir.x*(i-1)*.8)),slot:i,hp:1000,hitLock:0,attackWindup:null})}log('AI 판단: 영혼 늑대 3마리 소환')}
 function kick(){if(D.hp<=0)return;playSfx('kick');ringFx(D.x,D.y,'#ffe18a',1.8,.35,.2);burst(D.x,D.y,'#ffd58a',30,5,3.2);damageDummy(1000,'발차기');let v=norm(D.x-G.x,D.y-G.y);D.x=Math.max(1,Math.min(99,G.x+v.x*5));D.y=Math.max(1,Math.min(99,G.y+v.y*5));D.pull=null;G.kickFlash=.25}
 function terrainBlocked(x,y){let tx=Math.max(0,Math.min(99,Math.floor(x))),ty=Math.max(0,Math.min(99,Math.floor(y)));return terrain[ty][tx]==='water'||terrain[ty][tx]==='rock'}
 function findPath(sx,sy,tx,ty){
@@ -153,13 +153,15 @@ function update(dt){updateEffects(dt);updatePlayerB(dt);
    if(gap-travel<=stopRange+.0001){D.knockback=null;D.vx=0;D.vy=0;}
   }
  }
- // 영혼 늑대: 근접 거리 판정을 넉넉하게 잡아 충돌 분리 때문에 공격이 막히지 않게 한다.
+ // 영혼 늑대: 세 방향의 고정 슬롯을 추적해 적을 삼각형으로 포위한다.
  for(let i=G.wolves.length-1;i>=0;i--){
   const a=G.wolves[i];
   a.hitLock=Math.max(0,(a.hitLock||0)-dt);
   if(D.hp<=0)continue;
-  const before=dist(a,D);
-  if(before>.55)moveToward(a,D,8,dt);
+  const baseAngle=Math.atan2(G.y-D.y,G.x-D.x);
+  const slotAngle=baseAngle+(a.slot??i)*Math.PI*2/3;
+  const surroundTarget={x:Math.max(.5,Math.min(99.5,D.x+Math.cos(slotAngle)*.48)),y:Math.max(.5,Math.min(99.5,D.y+Math.sin(slotAngle)*.48))};
+  if(dist(a,surroundTarget)>.035)moveToward(a,surroundTarget,8,dt);
   const touched=dist(a,D)<=.65;
   // 늑대가 공격 범위에 들어온 뒤 2초간 공격을 준비한다.
   if(!touched||dist(G,D)<=2){a.attackWindup=null;}
