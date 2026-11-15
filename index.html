@@ -255,24 +255,12 @@ function francSkillText(text){skillTexts.push({x:F.x,y:F.y,text,color:'#e6c9ff',
 function francTargets(){const a=[];if((G.active||G._francTargetActive)&&G.hp>0)a.push(G);if(D.active&&D.hp>0)a.push(D);return a}
 function updateFranc(dt){if(!F.active)return;F.shield=Math.min(F.maxShield,F.shield+300*dt);if(F.hp<=0){F.state='전투 불능';return}const ts=francTargets();if(!ts.length){F.state='적 탐색';return}ts.sort((a,b)=>dist(F,a)-dist(F,b));const t=ts[0],d=dist(F,t),losing=F.hp+F.shield<t.hp;if(d<3&&losing){const v=norm(F.x-t.x,F.y-t.y);F.x=Math.max(.5,Math.min(99.5,F.x+v.x*2*dt));F.y=Math.max(.5,Math.min(99.5,F.y+v.y*2*dt));F.state='위험 감지 · 백스텝'}else if(d>2){moveToward(F,t,2,dt);F.state=(t===G?'제너럴 K':'B')+' 추적'}else F.state='광탄 연사';F.attackTimer-=dt;if(F.attackTimer<=0){visualEffects.push({type:'orb',x:F.x,y:F.y,tx:t.x,ty:t.y,duration:.16,life:.16});if(F.lastOrbSfx<=0){playSfx('orb');F.lastOrbSfx=.15}francDamage(t,15,'광탄');F.attackTimer=.001}else F.lastOrbSfx=Math.max(0,F.lastOrbSfx-dt);F.beamCd-=dt;F.meteorCd-=dt;F.armageddonCd-=dt;if(F.armageddonCd<=0){F.state='아마겟돈 시전';francSkillText('아마겟돈');playSfx('armageddon');whiteout=.55;fireField=2.4;screenShake=.7;visualEffects.push({type:'firewave',x:50,y:50,radius:75,duration:1.3,life:1.3});for(const q of ts)francDamage(q,2500,'아마겟돈');for(let i=0;i<7;i++)burst(F.x+(Math.random()-.5)*18,F.y+(Math.random()-.5)*18,'#ff7a2c',34,7,4);log('프랑 궁극기 · 아마겟돈 · 전장 전체 2,500 피해');F.armageddonCd=80}else if(F.meteorCd<=0){F.state='메테오 낙하';francSkillText('메테오');playSfx('meteor');screenShake=.55;for(const q of ts){visualEffects.push({type:'meteor',x:q.x,y:q.y,duration:.8,life:.8});francDamage(q,500,'메테오');visualEffects.push({type:'firewave',x:q.x,y:q.y,radius:8,duration:.7,life:.7});burst(q.x,q.y,'#ff6927',42,7,4)}log('프랑 메테오 · 모든 적에게 500 피해');F.meteorCd=50}else if(F.beamCd<=0){F.state='광선 발사';francSkillText('광선');playSfx('beam');screenShake=.28;visualEffects.push({type:'beam',x:t.x,y:t.y,duration:.42,life:.42});francDamage(t,275,'광선');log('프랑 광선 · '+(t===G?'제너럴 K':'B')+'에게 확정 명중 · 275 피해');F.beamCd=15}}
 const oldUpdate=update;update=function(dt){oldUpdate(dt);updateFranc(dt)};
-// 제너럴 K가 B가 없는 경우 프랑을 적으로 추적·공격한다.
-let gFrancAttack=0;
+// 제너럴 K의 기존 AI 전투 루프를 그대로 유지한다.
+ // 프랑 AI는 별도 updateFranc 루프에서 제너럴 K를 적으로 처리한다.
+ // 프랑 추적용으로 G.active를 false로 바꾸던 래퍼를 제거해
+ // 영혼 베기·영혼 사슬·늑대·도약·영혼 절멸자가 정상 실행되게 한다.
 const updateWithAllies=update;
-update=function(dt){
- // 세 캐릭터가 동시에 배치되어도 제너럴 K는 가장 가까운 적을 우선 추격한다.
- const targetFranc=G.active&&F.active&&F.hp>0&&(!D.active||dist(G,F)<dist(G,D));
- if(targetFranc){
-  const wasActive=G.active;G.active=false;G._francTargetActive=true;
-  updateWithAllies(dt);
-  G.active=wasActive;G._francTargetActive=false;
-  if(F.active&&F.hp>0){
-   gFrancAttack=Math.max(0,gFrancAttack-dt);
-   const gap=dist(G,F);
-   if(gap>2){moveToward(G,F,5,dt);G.state='프랑 추적'}
-   else{G.state='프랑에게 영혼 베기';if(gFrancAttack<=0){const damage=100;const absorbed=Math.min(F.shield,damage);F.shield-=absorbed;F.hp=Math.max(0,F.hp-(damage-absorbed));ringFx(F.x,F.y,'#8eeaff',.8,.25,.12);burst(F.x,F.y,'#8eeaff',12,2,1.5);log('제너럴 K 영혼 베기 · 프랑에게 '+damage+' 피해');gFrancAttack=.25}}
-  }
- }else updateWithAllies(dt);
-};
+update=function(dt){updateWithAllies(dt)};
 // draw 예외를 숨기지 않고 원래 전투 렌더러를 그대로 실행한다.
 new ResizeObserver(resize).observe(view);
 try{resize()}catch(e){canvas.width=Math.max(1,view.clientWidth);canvas.height=Math.max(1,view.clientHeight);dpr=1}
